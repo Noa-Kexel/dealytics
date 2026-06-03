@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+} from 'chart.js';
 import {
     Star,
     Bell,
@@ -8,36 +16,176 @@ import {
     Calendar,
     DollarSign,
     Target,
+    Plus,
+    Trash2,
+    Settings,
+    ExternalLink,
+    Flame,
+    Check,
 } from 'lucide-vue-next';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
+import { Bar } from 'vue-chartjs';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { useAlerts } from '@/composables/useAlerts';
+import { useBudget } from '@/composables/useBudget';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
+
+const { alerts, getActiveAlerts, getReachedAlerts, removeAlert, checkAlerts } = useAlerts();
+const {
+    budget,
+    totalSpent,
+    totalSaved,
+    remaining,
+    budgetPercent,
+    isOverBudget,
+    setLimit,
+    addPurchase,
+    removePurchase,
+    getSpendingHistory,
+} = useBudget();
 
 const favorites = ref<{ gameID: string; title: string; thumb: string; addedAt: string }[]>([]);
+const topDeals = ref<{ dealID: string; title: string; salePrice: string; normalPrice: string; savings: string; thumb: string; gameID: string }[]>([]);
+const loadingDeals = ref(true);
 
-onMounted(() => {
+// Budget editing
+const editingBudget = ref(false);
+const newBudgetLimit = ref('');
+
+// Add purchase form
+const newPurchaseTitle = ref('');
+const newPurchasePrice = ref('');
+const newPurchaseOriginal = ref('');
+const newPurchaseStore = ref('');
+
+// Spending chart
+const spendingHistory = ref(getSpendingHistory());
+
+const spendingChartData = ref({
+    labels: spendingHistory.value.map((h) => h.month),
+    datasets: [
+        {
+            label: 'Dépenses ($)',
+            data: spendingHistory.value.map((h) => h.spent),
+            backgroundColor: 'rgba(168, 85, 247, 0.7)',
+            borderColor: '#A855F7',
+            borderWidth: 1,
+            borderRadius: 6,
+        },
+    ],
+});
+
+const spendingChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            backgroundColor: 'rgba(6, 4, 15, 0.9)',
+            borderColor: 'rgba(168, 85, 247, 0.3)',
+            borderWidth: 1,
+            titleColor: '#f2f2f2',
+            bodyColor: '#f2f2f2',
+            cornerRadius: 8,
+            callbacks: {
+                label: (ctx: { parsed: { y: number } }) => `$${ctx.parsed.y.toFixed(2)}`,
+            },
+        },
+    },
+    scales: {
+        x: {
+            grid: { color: 'rgba(124, 58, 237, 0.08)' },
+            ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } },
+        },
+        y: {
+            grid: { color: 'rgba(124, 58, 237, 0.08)' },
+            ticks: {
+                color: 'rgba(255,255,255,0.4)',
+                font: { size: 10 },
+                callback: (value: string | number) => `$${value}`,
+            },
+        },
+    },
+};
+
+function saveBudgetLimit() {
+    const val = parseFloat(newBudgetLimit.value);
+
+    if (val > 0) {
+        setLimit(val);
+        editingBudget.value = false;
+    }
+}
+
+function submitPurchase() {
+    const price = parseFloat(newPurchasePrice.value);
+    const original = parseFloat(newPurchaseOriginal.value) || price;
+
+    if (newPurchaseTitle.value && price > 0) {
+        addPurchase(newPurchaseTitle.value, price, original, newPurchaseStore.value || 'N/A');
+        newPurchaseTitle.value = '';
+        newPurchasePrice.value = '';
+        newPurchaseOriginal.value = '';
+        newPurchaseStore.value = '';
+        refreshChart();
+    }
+}
+
+function handleRemovePurchase(id: string) {
+    removePurchase(id);
+    refreshChart();
+}
+
+function refreshChart() {
+    const history = getSpendingHistory();
+    spendingChartData.value = {
+        labels: history.map((h) => h.month),
+        datasets: [
+            {
+                label: 'Dépenses ($)',
+                data: history.map((h) => h.spent),
+                backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                borderColor: '#A855F7',
+                borderWidth: 1,
+                borderRadius: 6,
+            },
+        ],
+    };
+}
+
+onMounted(async () => {
+    // Load favorites
     try {
         favorites.value = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
     } catch {
         favorites.value = [];
     }
+
+    // Check alerts
+    checkAlerts();
+
+    // Load top deals
+    try {
+        const response = await fetch(
+            'https://www.cheapshark.com/api/1.0/deals?sortBy=Deal Rating&pageSize=5&onSale=1',
+        );
+        topDeals.value = await response.json();
+    } catch {
+        // ignore
+    } finally {
+        loadingDeals.value = false;
+    }
 });
-
-const budget = ref(
-    (() => {
-        try {
-            return JSON.parse(localStorage.getItem('dealytics_budget') || '{"limit": 150, "spent": 0}');
-        } catch {
-            return { limit: 150, spent: 0 };
-        }
-    })()
-);
-
-const budgetPercent = computed(() =>
-    budget.value.limit > 0
-        ? Math.min(100, Math.round((budget.value.spent / budget.value.limit) * 100))
-        : 0
-);
-
-const remaining = computed(() => Math.max(0, budget.value.limit - budget.value.spent));
 </script>
 
 <template>
@@ -74,7 +222,7 @@ const remaining = computed(() => Math.max(0, budget.value.limit - budget.value.s
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
                     <Bell class="size-4 text-dealytics-cyan" />
                 </div>
-                <div class="text-2xl font-bold text-foreground">0</div>
+                <div class="text-2xl font-bold text-foreground">{{ getActiveAlerts().length }}</div>
                 <div class="text-xs text-muted-foreground">Alertes actives</div>
                 <div class="text-[10px] text-muted-foreground/70">surveillance prix</div>
             </div>
@@ -82,22 +230,24 @@ const remaining = computed(() => Math.max(0, budget.value.limit - budget.value.s
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
                     <TrendingDown class="size-4 text-dealytics-cyan" />
                 </div>
-                <div class="text-2xl font-bold text-dealytics-cyan">--</div>
+                <div class="text-2xl font-bold text-dealytics-cyan">
+                    {{ budget.purchases.length > 0 ? Math.round((totalSaved / (totalSpent + totalSaved)) * 100) + '%' : '--' }}
+                </div>
                 <div class="text-xs text-muted-foreground">Réduction moy.</div>
-                <div class="text-[10px] text-muted-foreground/70">sur tous les deals</div>
+                <div class="text-[10px] text-muted-foreground/70">sur vos achats</div>
             </div>
             <div class="border-gradient rounded-xl p-4">
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
                     <DollarSign class="size-4 text-dealytics-pink" />
                 </div>
-                <div class="text-2xl font-bold text-dealytics-pink">$0</div>
+                <div class="text-2xl font-bold text-dealytics-pink">${{ totalSaved.toFixed(2) }}</div>
                 <div class="text-xs text-muted-foreground">Economisé</div>
                 <div class="text-[10px] text-muted-foreground/70">ce mois-ci</div>
             </div>
         </div>
 
-        <!-- Budget + Spending -->
-        <div class="mb-6 grid gap-4 md:grid-cols-2">
+        <!-- Budget + Spending Chart -->
+        <div class="mb-6 grid gap-4 lg:grid-cols-2">
             <!-- Monthly Budget -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center justify-between">
@@ -105,66 +255,247 @@ const remaining = computed(() => Math.max(0, budget.value.limit - budget.value.s
                         <Calendar class="size-4 text-dealytics-purple" />
                         <h2 class="font-heading text-lg font-semibold">Budget Mensuel</h2>
                     </div>
-                    <span class="text-xs text-muted-foreground uppercase">
+                    <span class="text-xs uppercase text-muted-foreground">
                         {{ new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }}
                     </span>
                 </div>
 
+                <!-- Budget amount -->
                 <div class="mb-2 flex items-baseline gap-2">
-                    <span class="text-3xl font-bold text-dealytics-cyan">${{ budget.spent.toFixed(2) }}</span>
-                    <span class="text-sm text-muted-foreground">/ ${{ budget.limit }}</span>
+                    <span class="text-3xl font-bold" :class="isOverBudget ? 'text-red-400' : 'text-dealytics-cyan'">
+                        ${{ totalSpent.toFixed(2) }}
+                    </span>
+                    <span class="text-sm text-muted-foreground">
+                        / ${{ budget.limit }}
+                        <button
+                            class="ml-1 text-dealytics-purple hover:text-dealytics-purple/80"
+                            @click="editingBudget = !editingBudget; newBudgetLimit = budget.limit.toString()"
+                        >
+                            <Settings class="inline size-3" />
+                        </button>
+                    </span>
+                </div>
+
+                <!-- Edit budget inline -->
+                <div v-if="editingBudget" class="mb-3 flex gap-2">
+                    <Input
+                        v-model="newBudgetLimit"
+                        type="number"
+                        min="1"
+                        placeholder="Nouveau budget"
+                        class="h-8 text-sm"
+                        @keyup.enter="saveBudgetLimit"
+                    />
+                    <Button size="sm" class="h-8 bg-dealytics-purple hover:bg-dealytics-deep-purple" @click="saveBudgetLimit">
+                        <Check class="size-3.5" />
+                    </Button>
                 </div>
 
                 <!-- Progress bar -->
                 <div class="mb-2 h-2 overflow-hidden rounded-full bg-secondary">
                     <div
                         class="h-full rounded-full transition-all duration-500"
-                        :class="budgetPercent > 80 ? 'bg-dealytics-pink' : 'bg-dealytics-cyan'"
-                        :style="{ width: `${budgetPercent}%` }"
+                        :class="isOverBudget ? 'bg-red-400' : budgetPercent > 80 ? 'bg-dealytics-pink' : 'bg-dealytics-cyan'"
+                        :style="{ width: `${Math.min(budgetPercent, 100)}%` }"
                     />
                 </div>
 
-                <p class="text-xs text-muted-foreground">
-                    {{ 100 - budgetPercent }}% restant · ${{ remaining.toFixed(2) }} disponible
+                <p class="mb-4 text-xs text-muted-foreground">
+                    <span v-if="isOverBudget" class="text-red-400">Budget dépassé de ${{ (totalSpent - budget.limit).toFixed(2) }}</span>
+                    <span v-else>{{ 100 - budgetPercent }}% restant · ${{ remaining.toFixed(2) }} disponible</span>
                 </p>
 
-                <div class="mt-4 grid grid-cols-3 gap-3">
+                <!-- Mini stats -->
+                <div class="mb-4 grid grid-cols-3 gap-3">
                     <div class="rounded-lg bg-secondary/50 p-2 text-center">
-                        <div class="text-sm font-semibold text-foreground">0</div>
+                        <div class="text-sm font-semibold text-foreground">{{ budget.purchases.length }}</div>
                         <div class="text-[10px] text-muted-foreground">Achetés</div>
                     </div>
                     <div class="rounded-lg bg-secondary/50 p-2 text-center">
-                        <div class="text-sm font-semibold text-dealytics-cyan">$0</div>
+                        <div class="text-sm font-semibold text-dealytics-cyan">${{ totalSaved.toFixed(2) }}</div>
                         <div class="text-[10px] text-muted-foreground">Economisé</div>
                     </div>
                     <div class="rounded-lg bg-secondary/50 p-2 text-center">
-                        <div class="text-sm font-semibold text-dealytics-pink">${{ remaining.toFixed(2) }}</div>
+                        <div class="text-sm font-semibold" :class="isOverBudget ? 'text-red-400' : 'text-dealytics-pink'">
+                            ${{ remaining.toFixed(2) }}
+                        </div>
                         <div class="text-[10px] text-muted-foreground">Restant</div>
+                    </div>
+                </div>
+
+                <!-- Add purchase -->
+                <Dialog>
+                    <DialogTrigger as-child>
+                        <Button variant="outline" size="sm" class="w-full gap-2 text-xs">
+                            <Plus class="size-3.5" />
+                            Ajouter un achat
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent class="border-border/50 bg-background">
+                        <DialogHeader>
+                            <DialogTitle class="font-heading">Ajouter un achat</DialogTitle>
+                        </DialogHeader>
+                        <div class="space-y-3">
+                            <Input v-model="newPurchaseTitle" placeholder="Nom du jeu" class="text-sm" />
+                            <div class="grid grid-cols-2 gap-3">
+                                <Input v-model="newPurchasePrice" type="number" step="0.01" min="0" placeholder="Prix payé ($)" class="text-sm" />
+                                <Input v-model="newPurchaseOriginal" type="number" step="0.01" min="0" placeholder="Prix original ($)" class="text-sm" />
+                            </div>
+                            <Input v-model="newPurchaseStore" placeholder="Magasin (ex: Steam)" class="text-sm" />
+                            <DialogClose as-child>
+                                <Button
+                                    class="w-full bg-dealytics-purple hover:bg-dealytics-deep-purple"
+                                    :disabled="!newPurchaseTitle || !newPurchasePrice"
+                                    @click="submitPurchase"
+                                >
+                                    Ajouter
+                                </Button>
+                            </DialogClose>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <!-- Purchase list -->
+                <div v-if="budget.purchases.length > 0" class="mt-4 space-y-2">
+                    <div
+                        v-for="purchase in budget.purchases"
+                        :key="purchase.id"
+                        class="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2"
+                    >
+                        <div>
+                            <div class="text-xs font-medium">{{ purchase.gameTitle }}</div>
+                            <div class="text-[10px] text-muted-foreground">
+                                {{ purchase.store }} · {{ new Date(purchase.date).toLocaleDateString('fr-FR') }}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-right">
+                                <div class="text-xs font-semibold text-dealytics-cyan">${{ purchase.price.toFixed(2) }}</div>
+                                <div v-if="purchase.originalPrice > purchase.price" class="text-[10px] text-muted-foreground line-through">
+                                    ${{ purchase.originalPrice.toFixed(2) }}
+                                </div>
+                            </div>
+                            <button
+                                class="text-muted-foreground/50 hover:text-red-400"
+                                @click="handleRemovePurchase(purchase.id)"
+                            >
+                                <Trash2 class="size-3" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Placeholder Spending History -->
+            <!-- Spending History Chart -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <TrendingDown class="size-4 text-dealytics-cyan" />
                     <h2 class="font-heading text-lg font-semibold">Historique Dépenses</h2>
                 </div>
-                <div class="flex h-48 items-center justify-center text-muted-foreground/30">
-                    <p class="text-sm">Graphique disponible bientôt</p>
+                <div class="h-56">
+                    <Bar :data="spendingChartData" :options="spendingChartOptions" />
                 </div>
             </div>
         </div>
 
-        <!-- Top Deals -->
-        <div class="border-gradient rounded-xl p-6">
-            <div class="mb-4 flex items-center gap-2">
-                <Target class="size-4 text-dealytics-pink" />
-                <h2 class="font-heading text-lg font-semibold">Top Offres du Moment</h2>
+        <!-- Alerts + Top Deals -->
+        <div class="grid gap-4 lg:grid-cols-2">
+            <!-- Active Alerts -->
+            <div class="border-gradient rounded-xl p-6">
+                <div class="mb-4 flex items-center gap-2">
+                    <Bell class="size-4 text-dealytics-cyan" />
+                    <h2 class="font-heading text-lg font-semibold">Alertes de prix</h2>
+                </div>
+
+                <!-- Reached alerts -->
+                <div v-if="getReachedAlerts().length > 0" class="mb-4 space-y-2">
+                    <p class="text-[10px] font-medium uppercase tracking-wider text-dealytics-pink">Objectif atteint</p>
+                    <div
+                        v-for="alert in getReachedAlerts()"
+                        :key="alert.gameID"
+                        class="flex items-center justify-between rounded-lg bg-dealytics-pink/10 px-3 py-2"
+                    >
+                        <div>
+                            <div class="text-xs font-medium">{{ alert.title }}</div>
+                            <div class="text-[10px] text-dealytics-pink">
+                                Objectif ${{ alert.targetPrice.toFixed(2) }} atteint !
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <Link :href="`/game/${alert.gameID}`" class="text-dealytics-cyan hover:text-dealytics-cyan/80">
+                                <ExternalLink class="size-3.5" />
+                            </Link>
+                            <button class="text-muted-foreground/50 hover:text-red-400" @click="removeAlert(alert.gameID)">
+                                <Trash2 class="size-3" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active alerts -->
+                <div v-if="getActiveAlerts().length > 0" class="space-y-2">
+                    <p class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">En surveillance</p>
+                    <div
+                        v-for="alert in getActiveAlerts()"
+                        :key="alert.gameID"
+                        class="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2"
+                    >
+                        <div>
+                            <div class="text-xs font-medium">{{ alert.title }}</div>
+                            <div class="text-[10px] text-muted-foreground">
+                                Objectif : ${{ alert.targetPrice.toFixed(2) }}
+                                <span v-if="alert.currentPrice"> · Actuel : ${{ alert.currentPrice.toFixed(2) }}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <Link :href="`/game/${alert.gameID}`" class="text-dealytics-cyan hover:text-dealytics-cyan/80">
+                                <ExternalLink class="size-3.5" />
+                            </Link>
+                            <button class="text-muted-foreground/50 hover:text-red-400" @click="removeAlert(alert.gameID)">
+                                <Trash2 class="size-3" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p v-if="alerts.length === 0" class="py-4 text-center text-xs text-muted-foreground">
+                    Aucune alerte. Ajoutez-en depuis une page de jeu.
+                </p>
             </div>
-            <p class="text-sm text-muted-foreground">
-                Consultez la page de recherche pour voir les meilleures offres en temps réel.
-            </p>
+
+            <!-- Top Deals -->
+            <div class="border-gradient rounded-xl p-6">
+                <div class="mb-4 flex items-center gap-2">
+                    <Target class="size-4 text-dealytics-pink" />
+                    <h2 class="font-heading text-lg font-semibold">Top Offres du Moment</h2>
+                </div>
+
+                <div v-if="loadingDeals" class="space-y-3">
+                    <div v-for="i in 5" :key="i" class="h-12 animate-pulse rounded-lg bg-secondary/50" />
+                </div>
+
+                <div v-else class="space-y-2">
+                    <Link
+                        v-for="deal in topDeals"
+                        :key="deal.dealID"
+                        :href="`/game/${deal.gameID}`"
+                        class="flex items-center gap-3 rounded-lg bg-secondary/30 p-2 transition-colors hover:bg-secondary/50"
+                    >
+                        <img :src="deal.thumb" :alt="deal.title" class="size-10 rounded object-cover" />
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-xs font-medium">{{ deal.title }}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-dealytics-cyan">${{ parseFloat(deal.salePrice).toFixed(2) }}</span>
+                                <span class="text-[10px] text-muted-foreground line-through">${{ parseFloat(deal.normalPrice).toFixed(2) }}</span>
+                                <span class="flex items-center gap-0.5 text-[10px] font-semibold text-dealytics-pink">
+                                    <Flame class="size-2.5" />
+                                    -{{ Math.round(parseFloat(deal.savings)) }}%
+                                </span>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+            </div>
         </div>
     </div>
 </template>

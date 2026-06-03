@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { router } from '@inertiajs/vue3';
 import { Flame, Star, Heart } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -67,10 +68,7 @@ const storeNames: Record<string, string> = {
 const storeName = computed(() => storeNames[props.deal.storeID] || 'Store');
 
 function openDeal() {
-    window.open(
-        `https://www.cheapshark.com/redirect?dealID=${props.deal.dealID}`,
-        '_blank'
-    );
+    router.visit(`/game/${props.deal.gameID}`);
 }
 
 // Favorite logic (localStorage)
