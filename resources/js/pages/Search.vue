@@ -9,6 +9,7 @@ import {
     Gamepad2,
 
 } from 'lucide-vue-next';
+import { onMounted } from 'vue';
 import { ref, watch } from 'vue';
 import GameCard from '@/components/GameCard.vue';
 import GameCardSkeleton from '@/components/GameCardSkeleton.vue';
@@ -44,7 +45,11 @@ interface StoreInfo {
 const searchQuery = ref('');
 const deals = ref<Deal[]>([]);
 const loading = ref(false);
+const loadingMore = ref(false);
 const hasSearched = ref(false);
+const hasMore = ref(false);
+const currentPage = ref(0);
+const PAGE_SIZE = 12;
 const selectedStore = ref<string>('all');
 const maxPrice = ref<string>('all');
 const sortBy = ref<string>('Deal Rating');
@@ -77,59 +82,98 @@ async function fetchStores() {
     }
 }
 
-fetchStores();
+onMounted(() => {
+    fetchStores();
+    loadTopDeals();
+});
 
-// Search deals
+function buildParams(page: number): URLSearchParams {
+    const params = new URLSearchParams();
+
+    if (searchQuery.value.trim()) {
+        params.set('title', searchQuery.value);
+    }
+
+    params.set('sortBy', sortBy.value);
+    params.set('pageSize', String(PAGE_SIZE));
+    params.set('pageNumber', String(page));
+
+    if (onSaleOnly.value) {
+        params.set('onSale', '1');
+    }
+
+    if (selectedStore.value !== 'all') {
+        params.set('storeID', selectedStore.value);
+    }
+
+    if (maxPrice.value !== 'all') {
+        params.set('upperPrice', maxPrice.value);
+    }
+
+    return params;
+}
+
+function updateStats() {
+    gamesTracked.value = deals.value.length;
+    hotDeals.value = deals.value.filter((d) => parseFloat(d.savings) > 50).length;
+    totalSavings.value = Math.round(
+        deals.value.reduce(
+            (acc, d) => acc + (parseFloat(d.normalPrice) - parseFloat(d.salePrice)),
+            0,
+        ),
+    );
+}
+
 async function searchDeals() {
     if (!searchQuery.value.trim()) {
         deals.value = [];
         hasSearched.value = false;
+        hasMore.value = false;
 
         return;
     }
 
     loading.value = true;
     hasSearched.value = true;
+    currentPage.value = 0;
 
     try {
-        const params = new URLSearchParams({
-            title: searchQuery.value,
-            pageSize: '30',
-            sortBy: sortBy.value,
-        });
-
-        if (onSaleOnly.value) {
-            params.set('onSale', '1');
-        }
-
-        if (selectedStore.value !== 'all') {
-            params.set('storeID', selectedStore.value);
-        }
-
-        if (maxPrice.value !== 'all') {
-            params.set('upperPrice', maxPrice.value);
-        }
-
+        const params = buildParams(0);
         const response = await fetch(
             `https://www.cheapshark.com/api/1.0/deals?${params.toString()}`,
         );
         const data: Deal[] = await response.json();
         deals.value = data;
-
-        // Update stats
-        gamesTracked.value = data.length;
-        hotDeals.value = data.filter((d) => parseFloat(d.savings) > 50).length;
-        totalSavings.value = Math.round(
-            data.reduce(
-                (acc, d) =>
-                    acc + (parseFloat(d.normalPrice) - parseFloat(d.salePrice)),
-                0,
-            ),
-        );
+        hasMore.value = data.length >= PAGE_SIZE;
+        updateStats();
     } catch {
         deals.value = [];
     } finally {
         loading.value = false;
+    }
+}
+
+async function loadMore() {
+    if (loadingMore.value) {
+        return;
+    }
+
+    loadingMore.value = true;
+    currentPage.value++;
+
+    try {
+        const params = buildParams(currentPage.value);
+        const response = await fetch(
+            `https://www.cheapshark.com/api/1.0/deals?${params.toString()}`,
+        );
+        const data: Deal[] = await response.json();
+        deals.value = [...deals.value, ...data];
+        hasMore.value = data.length >= PAGE_SIZE;
+        updateStats();
+    } catch {
+        hasMore.value = false;
+    } finally {
+        loadingMore.value = false;
     }
 }
 
@@ -151,41 +195,32 @@ watch([selectedStore, maxPrice, sortBy, onSaleOnly], () => {
     }
 });
 
-// Load top deals on mount
 async function loadTopDeals() {
     loading.value = true;
     hasSearched.value = true;
+    currentPage.value = 0;
 
     try {
+        const params = buildParams(0);
         const response = await fetch(
-            'https://www.cheapshark.com/api/1.0/deals?sortBy=Deal Rating&pageSize=12&onSale=1',
+            `https://www.cheapshark.com/api/1.0/deals?${params.toString()}`,
         );
         const data: Deal[] = await response.json();
         deals.value = data;
-
-        gamesTracked.value = data.length;
-        hotDeals.value = data.filter((d) => parseFloat(d.savings) > 50).length;
-        totalSavings.value = Math.round(
-            data.reduce(
-                (acc, d) =>
-                    acc + (parseFloat(d.normalPrice) - parseFloat(d.salePrice)),
-                0,
-            ),
-        );
+        hasMore.value = data.length >= PAGE_SIZE;
+        updateStats();
     } catch {
         deals.value = [];
     } finally {
         loading.value = false;
     }
 }
-
-loadTopDeals();
 </script>
 
 <template>
     <Head title="Recherche" />
 
-    <div class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+    <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <!-- Hero Section -->
         <div
             class="border-gradient-strong relative mb-8 overflow-hidden rounded-2xl p-8 md:p-12"
@@ -375,11 +410,43 @@ loadTopDeals();
             v-else-if="deals.length > 0"
             class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
-            <GameCard v-for="deal in deals" :key="deal.dealID" :deal="deal" />
+            <GameCard
+                v-for="(deal, index) in deals"
+                :key="deal.dealID"
+                :deal="deal"
+                class="animate-card-in"
+                :style="{ animationDelay: `${Math.min(index, 11) * 50}ms` }"
+            />
+        </div>
+
+        <!-- Load More -->
+        <div v-if="hasMore && !loading && deals.length > 0" class="mt-8 flex justify-center">
+            <Button
+                variant="outline"
+                class="gap-2 rounded-xl border-dealytics-purple/50 px-8 text-dealytics-purple hover:bg-dealytics-purple/10"
+                :disabled="loadingMore"
+                @click="loadMore"
+            >
+                <template v-if="loadingMore">
+                    <div class="size-4 animate-spin rounded-full border-2 border-dealytics-purple border-t-transparent" />
+                    Chargement...
+                </template>
+                <template v-else>
+                    Charger plus de résultats
+                </template>
+            </Button>
+        </div>
+
+        <!-- Loading more skeletons -->
+        <div
+            v-if="loadingMore"
+            class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        >
+            <GameCardSkeleton v-for="i in 4" :key="'more-' + i" />
         </div>
 
         <div
-            v-else-if="hasSearched"
+            v-else-if="hasSearched && deals.length === 0"
             class="flex flex-col items-center justify-center py-20 text-center"
         >
             <Gamepad2 class="mb-4 size-16 text-muted-foreground/30" />

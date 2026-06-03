@@ -110,7 +110,7 @@ const sortedFavorites = computed(() => {
 <template>
     <Head title="Favoris" />
 
-    <div class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+    <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <!-- Header -->
         <div class="mb-8 flex items-center gap-3">
             <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-pink/20">

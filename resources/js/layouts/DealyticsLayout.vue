@@ -170,8 +170,37 @@ const navItems: NavItem[] = [
         </header>
 
         <!-- Main content -->
-        <main class="flex-1">
+        <main class="flex-1 pb-8">
             <slot />
         </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-border/50 bg-background/80 backdrop-blur-xl">
+            <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
+                <div class="flex flex-col items-center gap-6 md:flex-row md:justify-between">
+                    <div class="flex items-center gap-2">
+                        <AppLogoIcon class="size-6" />
+                        <span class="font-heading text-sm font-bold text-gradient-purple">DEALYTICS</span>
+                        <span class="text-xs text-muted-foreground">· Price Tracker</span>
+                    </div>
+
+                    <nav class="flex items-center gap-6">
+                        <Link
+                            v-for="item in navItems"
+                            :key="item.title"
+                            :href="item.href"
+                            class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                            {{ item.title }}
+                        </Link>
+                    </nav>
+
+                    <p class="text-[11px] text-muted-foreground/60">
+                        &copy; {{ new Date().getFullYear() }} Dealytics &mdash; TFE Project
+                    </p>
+                </div>
+            </div>
+            <div class="h-px bg-gradient-to-r from-transparent via-dealytics-purple/30 to-transparent" />
+        </footer>
     </div>
 </template>

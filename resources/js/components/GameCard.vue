@@ -41,6 +41,35 @@ const dealBadge = computed(() => {
 const salePrice = computed(() => parseFloat(props.deal.salePrice));
 const normalPrice = computed(() => parseFloat(props.deal.normalPrice));
 
+const qualityPriceScore = computed(() => {
+    const dealRating = parseFloat(props.deal.dealRating) || 0;
+    const savings = parseFloat(props.deal.savings) || 0;
+    const metacritic = parseFloat(props.deal.metacriticScore) || 0;
+    const steamRating = parseFloat(props.deal.steamRatingPercent) || 0;
+
+    const dealScore = Math.min(dealRating * 10, 100);
+    const savingsScore = Math.min(savings * 1.2, 100);
+    const qualityScore = metacritic > 0 ? metacritic : steamRating > 0 ? steamRating : 50;
+
+    return Math.round(dealScore * 0.35 + savingsScore * 0.35 + qualityScore * 0.3);
+});
+
+const scoreColor = computed(() => {
+    if (qualityPriceScore.value >= 80) {
+        return 'text-dealytics-cyan border-dealytics-cyan/50 bg-dealytics-cyan/10';
+    }
+
+    if (qualityPriceScore.value >= 60) {
+        return 'text-dealytics-purple border-dealytics-purple/50 bg-dealytics-purple/10';
+    }
+
+    if (qualityPriceScore.value >= 40) {
+        return 'text-yellow-400 border-yellow-400/50 bg-yellow-400/10';
+    }
+
+    return 'text-muted-foreground border-border bg-secondary/50';
+});
+
 // Store logos mapping (CheapShark store IDs)
 const storeNames: Record<string, string> = {
     '1': 'Steam',
@@ -182,6 +211,13 @@ function toggleFavorite(e: Event) {
                     >
                         ${{ normalPrice.toFixed(2) }}
                     </span>
+                </div>
+                <div
+                    class="flex size-8 items-center justify-center rounded-full border text-[11px] font-bold"
+                    :class="scoreColor"
+                    :title="`Score qualité/prix : ${qualityPriceScore}/100`"
+                >
+                    {{ qualityPriceScore }}
                 </div>
             </div>
         </div>

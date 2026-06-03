@@ -97,6 +97,35 @@ const currentPrice = computed(() => (bestDeal.value ? parseFloat(bestDeal.value.
 const normalPrice = computed(() => (bestDeal.value ? parseFloat(bestDeal.value.retailPrice) : 0));
 const savingsPercent = computed(() => (bestDeal.value ? Math.round(parseFloat(bestDeal.value.savings)) : 0));
 const cheapestEver = computed(() => (game.value ? parseFloat(game.value.cheapestPriceEver.price) : 0));
+
+const qualityPriceScore = computed(() => {
+    if (!game.value || !bestDeal.value) {
+        return 0;
+    }
+
+    const ratio = cheapestEver.value > 0 ? currentPrice.value / cheapestEver.value : 1;
+    const proximityScore = Math.max(0, 100 - (ratio - 1) * 100);
+    const savingsScore = Math.min(savingsPercent.value * 1.2, 100);
+    const dealsCount = Math.min(game.value.deals.length * 10, 100);
+
+    return Math.round(proximityScore * 0.4 + savingsScore * 0.4 + dealsCount * 0.2);
+});
+
+const scoreColor = computed(() => {
+    if (qualityPriceScore.value >= 80) {
+        return 'text-dealytics-cyan';
+    }
+
+    if (qualityPriceScore.value >= 60) {
+        return 'text-dealytics-purple';
+    }
+
+    if (qualityPriceScore.value >= 40) {
+        return 'text-yellow-400';
+    }
+
+    return 'text-muted-foreground';
+});
 const cheapestDate = computed(() =>
     game.value
         ? new Date(game.value.cheapestPriceEver.date * 1000).toLocaleDateString('fr-FR', {
@@ -234,7 +263,7 @@ onMounted(async () => {
 <template>
     <Head :title="game?.info.title || 'Chargement...'" />
 
-    <div class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+    <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <!-- Back button -->
         <Link
             href="/search"
@@ -495,6 +524,24 @@ onMounted(async () => {
                             <div class="flex justify-between">
                                 <dt class="text-muted-foreground">Plus bas historique</dt>
                                 <dd class="font-medium text-dealytics-pink">${{ cheapestEver.toFixed(2) }}</dd>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-border/50 pt-3">
+                                <dt class="text-muted-foreground">Score qualité/prix</dt>
+                                <dd class="flex items-center gap-2">
+                                    <div
+                                        class="flex size-9 items-center justify-center rounded-full border text-sm font-bold"
+                                        :class="[
+                                            scoreColor,
+                                            qualityPriceScore >= 80 ? 'border-dealytics-cyan/50 bg-dealytics-cyan/10' :
+                                            qualityPriceScore >= 60 ? 'border-dealytics-purple/50 bg-dealytics-purple/10' :
+                                            qualityPriceScore >= 40 ? 'border-yellow-400/50 bg-yellow-400/10' :
+                                            'border-border bg-secondary/50'
+                                        ]"
+                                    >
+                                        {{ qualityPriceScore }}
+                                    </div>
+                                    <span class="text-xs" :class="scoreColor">/100</span>
+                                </dd>
                             </div>
                         </dl>
                     </div>

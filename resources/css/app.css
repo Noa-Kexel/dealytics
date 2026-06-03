@@ -210,3 +210,35 @@
         font-family: var(--font-heading), serif;
     }
 }
+
+/* Page entrance animation */
+@keyframes page-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-page-in {
+    animation: page-in 0.4s ease both;
+}
+
+/* Card stagger animation */
+@keyframes card-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-card-in {
+    animation: card-in 0.35s ease both;
+}
