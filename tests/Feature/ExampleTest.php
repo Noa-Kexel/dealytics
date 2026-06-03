@@ -11,8 +11,10 @@ class ExampleTest extends TestCase
 
     public function test_returns_a_successful_response()
     {
-        $response = $this->get(route('home'));
+        $this->get(route('home'))
+            ->assertRedirect(route('search'));
 
-        $response->assertOk();
+        $this->get(route('search'))
+            ->assertOk();
     }
 }
