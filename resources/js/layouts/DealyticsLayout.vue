@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Heart, LayoutGrid, Menu, Search, Zap } from 'lucide-vue-next';
+import { Heart, Home, LayoutGrid, Menu, Zap } from 'lucide-vue-next';
+import type { LucideIcon } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -33,19 +34,23 @@ const currentPath = computed(() => {
 });
 
 function isActive(path: string): boolean {
+    if (path === '/') {
+        return currentPath.value === '/';
+    }
+
     return currentPath.value === path || currentPath.value.startsWith(path + '/');
 }
 
 interface NavItem {
     title: string;
     href: string;
-    icon: typeof Search;
+    icon: LucideIcon;
 }
 
 const navItems: NavItem[] = [
-    { title: 'Recherche', href: '/search', icon: Search },
+    { title: 'Accueil', href: '/', icon: Home },
     { title: 'Favoris', href: '/favorites', icon: Heart },
-    { title: 'Dashboard', href: '/game-dashboard', icon: LayoutGrid },
+    { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
 ];
 </script>
 
@@ -55,7 +60,7 @@ const navItems: NavItem[] = [
         <header class="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
             <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6">
                 <!-- Logo -->
-                <Link href="/search" class="flex items-center">
+                <Link href="/" class="flex items-center">
                     <AppLogo />
                 </Link>
 
@@ -139,9 +144,9 @@ const navItems: NavItem[] = [
                         <SheetContent side="right" class="w-[280px] border-border/50 bg-background p-0">
                             <SheetTitle class="sr-only">Menu de navigation</SheetTitle>
                             <SheetHeader class="border-b border-border/50 p-4">
-                                <div class="flex items-center gap-2">
-                                    <AppLogoIcon class="size-7" />
-                                    <span class="font-heading text-base font-bold text-gradient-purple">DEALYTICS</span>
+                                <div class="flex items-center text-base">
+                                    <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
+                                    <span class="-ml-0.5 font-heading text-base font-bold text-gradient-purple">EALYTICS</span>
                                 </div>
                             </SheetHeader>
                             <nav class="flex flex-col gap-1 p-3">
@@ -178,10 +183,9 @@ const navItems: NavItem[] = [
         <footer class="border-t border-border/50 bg-background/80 backdrop-blur-xl">
             <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
                 <div class="flex flex-col items-center gap-6 md:flex-row md:justify-between">
-                    <div class="flex items-center gap-2">
-                        <AppLogoIcon class="size-6" />
-                        <span class="font-heading text-sm font-bold text-gradient-purple">DEALYTICS</span>
-                        <span class="text-xs text-muted-foreground">· Price Tracker</span>
+                    <div class="flex items-center text-sm">
+                        <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
+                        <span class="-ml-0.5 font-heading text-sm font-bold text-gradient-purple">EALYTICS</span>
                     </div>
 
                     <nav class="flex items-center gap-6">

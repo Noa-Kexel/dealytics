@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { LogIn } from 'lucide-vue-next';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
@@ -14,8 +15,8 @@ import { request } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        title: 'Connexion',
+        description: 'Entrez vos identifiants pour accéder à votre compte',
     },
 });
 
@@ -27,11 +28,11 @@ defineProps<{
 </script>
 
 <template>
-    <Head title="Log in" />
+    <Head title="Connexion" />
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-center text-sm font-medium text-green-400"
     >
         {{ status }}
     </div>
@@ -42,9 +43,9 @@ defineProps<{
         v-slot="{ errors, processing }"
         class="flex flex-col gap-6"
     >
-        <div class="grid gap-6">
+        <div class="grid gap-5">
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email" class="text-sm text-foreground/80">Adresse email</Label>
                 <Input
                     id="email"
                     type="email"
@@ -53,21 +54,22 @@ defineProps<{
                     autofocus
                     :tabindex="1"
                     autocomplete="email"
-                    placeholder="email@example.com"
+                    placeholder="votre@email.com"
+                    class="border-border/50 bg-secondary/50 placeholder:text-muted-foreground/50 focus:border-dealytics-purple/50 focus:ring-dealytics-purple/20"
                 />
                 <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
                 <div class="flex items-center justify-between">
-                    <Label for="password">Password</Label>
+                    <Label for="password" class="text-sm text-foreground/80">Mot de passe</Label>
                     <TextLink
                         v-if="canResetPassword"
                         :href="request()"
-                        class="text-sm"
+                        class="text-xs text-dealytics-purple hover:text-dealytics-purple/80"
                         :tabindex="5"
                     >
-                        Forgot password?
+                        Mot de passe oublié ?
                     </TextLink>
                 </div>
                 <PasswordInput
@@ -76,36 +78,43 @@ defineProps<{
                     required
                     :tabindex="2"
                     autocomplete="current-password"
-                    placeholder="Password"
+                    placeholder="Votre mot de passe"
                 />
                 <InputError :message="errors.password" />
             </div>
 
             <div class="flex items-center justify-between">
-                <Label for="remember" class="flex items-center space-x-3">
+                <Label for="remember" class="flex items-center space-x-3 text-sm text-muted-foreground">
                     <Checkbox id="remember" name="remember" :tabindex="3" />
-                    <span>Remember me</span>
+                    <span>Se souvenir de moi</span>
                 </Label>
             </div>
 
             <Button
                 type="submit"
-                class="mt-4 w-full"
+                class="mt-2 w-full gap-2 bg-dealytics-purple font-semibold text-white hover:bg-dealytics-deep-purple"
                 :tabindex="4"
                 :disabled="processing"
                 data-test="login-button"
             >
                 <Spinner v-if="processing" />
-                Log in
+                <LogIn v-else class="size-4" />
+                Se connecter
             </Button>
         </div>
 
         <div
-            class="text-center text-sm text-muted-foreground"
             v-if="canRegister"
+            class="text-center text-sm text-muted-foreground"
         >
-            Don't have an account?
-            <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
+            Pas encore de compte ?
+            <TextLink
+                :href="register()"
+                :tabindex="5"
+                class="text-dealytics-cyan hover:text-dealytics-cyan/80"
+            >
+                Créer un compte
+            </TextLink>
         </div>
     </Form>
 </template>

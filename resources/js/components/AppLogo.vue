@@ -3,11 +3,8 @@ import AppLogoIcon from '@/components/AppLogoIcon.vue';
 </script>
 
 <template>
-    <div class="flex items-center gap-2">
-        <AppLogoIcon class="size-9" />
-        <div class="flex flex-col leading-tight">
-            <span class="font-heading text-lg font-bold tracking-wide text-gradient-purple">DEALYTICS</span>
-            <span class="text-[10px] font-medium tracking-[0.2em] uppercase text-muted-foreground">Price Tracker</span>
-        </div>
+    <div class="grid grid-cols-[auto_1fr] items-center gap-x-0 text-lg">
+        <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
+        <span class="-ml-0.5 font-heading font-bold leading-none tracking-wide text-gradient-purple">EALYTICS</span>
     </div>
 </template>

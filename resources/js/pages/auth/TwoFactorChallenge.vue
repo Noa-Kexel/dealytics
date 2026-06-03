@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, setLayoutProps } from '@inertiajs/vue3';
+import { ShieldCheck } from 'lucide-vue-next';
 import { computed, ref, watchEffect } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -15,18 +16,16 @@ import type { TwoFactorConfigContent } from '@/types';
 const authConfigContent = computed<TwoFactorConfigContent>(() => {
     if (showRecoveryInput.value) {
         return {
-            title: 'Recovery code',
-            description:
-                'Please confirm access to your account by entering one of your emergency recovery codes.',
-            buttonText: 'login using an authentication code',
+            title: 'Code de récupération',
+            description: 'Entrez l\'un de vos codes de récupération d\'urgence pour accéder à votre compte.',
+            buttonText: 'utiliser un code d\'authentification',
         };
     }
 
     return {
-        title: 'Authentication code',
-        description:
-            'Enter the authentication code provided by your authenticator application.',
-        buttonText: 'login using a recovery code',
+        title: 'Code d\'authentification',
+        description: 'Entrez le code fourni par votre application d\'authentification.',
+        buttonText: 'utiliser un code de récupération',
     };
 });
 
@@ -49,7 +48,7 @@ const code = ref<string>('');
 </script>
 
 <template>
-    <Head title="Two-factor authentication" />
+    <Head title="Authentification à deux facteurs" />
 
     <div class="space-y-6">
         <template v-if="!showRecoveryInput">
@@ -61,9 +60,7 @@ const code = ref<string>('');
                 #default="{ errors, processing, clearErrors }"
             >
                 <input type="hidden" name="code" :value="code" />
-                <div
-                    class="flex flex-col items-center justify-center space-y-3 text-center"
-                >
+                <div class="flex flex-col items-center justify-center space-y-3 text-center">
                     <div class="flex w-full items-center justify-center">
                         <InputOTP
                             id="otp"
@@ -83,14 +80,19 @@ const code = ref<string>('');
                     </div>
                     <InputError :message="errors.code" />
                 </div>
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                <Button
+                    type="submit"
+                    class="w-full gap-2 bg-dealytics-purple font-semibold text-white hover:bg-dealytics-deep-purple"
+                    :disabled="processing"
                 >
+                    <ShieldCheck class="size-4" />
+                    Continuer
+                </Button>
                 <div class="text-center text-sm text-muted-foreground">
-                    <span>or you can </span>
+                    <span>ou vous pouvez </span>
                     <button
                         type="button"
-                        class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                        class="text-dealytics-cyan underline underline-offset-4 transition-colors hover:text-dealytics-cyan/80"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
                         {{ authConfigContent.buttonText }}
@@ -109,20 +111,26 @@ const code = ref<string>('');
                 <Input
                     name="recovery_code"
                     type="text"
-                    placeholder="Enter recovery code"
+                    placeholder="Entrez le code de récupération"
                     :autofocus="showRecoveryInput"
                     required
+                    class="border-border/50 bg-secondary/50 placeholder:text-muted-foreground/50 focus:border-dealytics-purple/50 focus:ring-dealytics-purple/20"
                 />
                 <InputError :message="errors.recovery_code" />
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                <Button
+                    type="submit"
+                    class="w-full gap-2 bg-dealytics-purple font-semibold text-white hover:bg-dealytics-deep-purple"
+                    :disabled="processing"
                 >
+                    <ShieldCheck class="size-4" />
+                    Continuer
+                </Button>
 
                 <div class="text-center text-sm text-muted-foreground">
-                    <span>or you can </span>
+                    <span>ou vous pouvez </span>
                     <button
                         type="button"
-                        class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                        class="text-dealytics-cyan underline underline-offset-4 transition-colors hover:text-dealytics-cyan/80"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
                         {{ authConfigContent.buttonText }}

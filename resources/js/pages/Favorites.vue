@@ -255,7 +255,7 @@ const sortedFavorites = computed(() => {
             <p class="mt-1 text-sm text-muted-foreground">
                 Ajoutez des jeux à vos favoris depuis la page de recherche.
             </p>
-            <Link href="/search" class="mt-4 text-sm text-dealytics-purple hover:underline">
+            <Link href="/" class="mt-4 text-sm text-dealytics-purple hover:underline">
                 Rechercher des jeux
             </Link>
         </div>

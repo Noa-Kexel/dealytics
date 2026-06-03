@@ -218,7 +218,7 @@ async function loadTopDeals() {
 </script>
 
 <template>
-    <Head title="Recherche" />
+    <Head title="Accueil" />
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <!-- Hero Section -->
