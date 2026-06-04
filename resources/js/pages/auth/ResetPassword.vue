@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { KeyRound } from 'lucide-vue-next';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -11,8 +12,8 @@ import { update } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Reset password',
-        description: 'Please enter your new password below',
+        title: 'Réinitialiser le mot de passe',
+        description: 'Choisissez votre nouveau mot de passe',
     },
 });
 
@@ -25,7 +26,7 @@ const inputEmail = ref(props.email);
 </script>
 
 <template>
-    <Head title="Reset password" />
+    <Head title="Réinitialiser le mot de passe" />
 
     <Form
         v-bind="update.form()"
@@ -33,54 +34,53 @@ const inputEmail = ref(props.email);
         :reset-on-success="['password', 'password_confirmation']"
         v-slot="{ errors, processing }"
     >
-        <div class="grid gap-6">
+        <div class="grid gap-5">
             <div class="grid gap-2">
-                <Label for="email">Email</Label>
+                <Label for="email" class="text-sm text-foreground/80">Email</Label>
                 <Input
                     id="email"
                     type="email"
                     name="email"
                     autocomplete="email"
                     v-model="inputEmail"
-                    class="mt-1 block w-full"
+                    class="border-border/50 bg-secondary/50 opacity-60"
                     readonly
                 />
-                <InputError :message="errors.email" class="mt-2" />
+                <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password">Password</Label>
+                <Label for="password" class="text-sm text-foreground/80">Nouveau mot de passe</Label>
                 <PasswordInput
                     id="password"
                     name="password"
                     autocomplete="new-password"
-                    class="mt-1 block w-full"
                     autofocus
-                    placeholder="Password"
+                    placeholder="Nouveau mot de passe"
                 />
                 <InputError :message="errors.password" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password_confirmation"> Confirm password </Label>
+                <Label for="password_confirmation" class="text-sm text-foreground/80">Confirmer le mot de passe</Label>
                 <PasswordInput
                     id="password_confirmation"
                     name="password_confirmation"
                     autocomplete="new-password"
-                    class="mt-1 block w-full"
-                    placeholder="Confirm password"
+                    placeholder="Confirmez le mot de passe"
                 />
                 <InputError :message="errors.password_confirmation" />
             </div>
 
             <Button
                 type="submit"
-                class="mt-4 w-full"
+                class="mt-2 w-full gap-2 bg-dealytics-purple font-semibold text-white hover:bg-dealytics-deep-purple"
                 :disabled="processing"
                 data-test="reset-password-button"
             >
                 <Spinner v-if="processing" />
-                Reset password
+                <KeyRound v-else class="size-4" />
+                Réinitialiser le mot de passe
             </Button>
         </div>
     </Form>

@@ -16,6 +16,12 @@ import DealBadge from '@/components/DealBadge.vue';
 import PriceHistoryChart from '@/components/PriceHistoryChart.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAlerts } from '@/composables/useAlerts';
 
 interface GameDeal {
@@ -60,6 +66,11 @@ const priceHistory = ref<PricePoint[]>([]);
 const alertPrice = ref('');
 const alertSet = ref(false);
 
+// Extra deal info for consistent score calculation
+const dealRating = ref(0);
+const metacriticScore = ref(0);
+const steamRatingPercent = ref(0);
+
 const storeNames: Record<string, string> = {
     '1': 'Steam',
     '2': 'GamersGate',
@@ -98,17 +109,21 @@ const normalPrice = computed(() => (bestDeal.value ? parseFloat(bestDeal.value.r
 const savingsPercent = computed(() => (bestDeal.value ? Math.round(parseFloat(bestDeal.value.savings)) : 0));
 const cheapestEver = computed(() => (game.value ? parseFloat(game.value.cheapestPriceEver.price) : 0));
 
+// Same formula as GameCard.vue for consistency
 const qualityPriceScore = computed(() => {
     if (!game.value || !bestDeal.value) {
         return 0;
     }
 
-    const ratio = cheapestEver.value > 0 ? currentPrice.value / cheapestEver.value : 1;
-    const proximityScore = Math.max(0, 100 - (ratio - 1) * 100);
+    const dealScore = Math.min(dealRating.value * 10, 100);
     const savingsScore = Math.min(savingsPercent.value * 1.2, 100);
-    const dealsCount = Math.min(game.value.deals.length * 10, 100);
+    const qualityScore = metacriticScore.value > 0
+        ? metacriticScore.value
+        : steamRatingPercent.value > 0
+            ? steamRatingPercent.value
+            : 50;
 
-    return Math.round(proximityScore * 0.4 + savingsScore * 0.4 + dealsCount * 0.2);
+    return Math.round(dealScore * 0.35 + savingsScore * 0.35 + qualityScore * 0.3);
 });
 
 const scoreColor = computed(() => {
@@ -126,6 +141,64 @@ const scoreColor = computed(() => {
 
     return 'text-muted-foreground';
 });
+
+const scoreLabel = computed(() => {
+    if (qualityPriceScore.value >= 80) {
+        return 'Excellent';
+    }
+
+    if (qualityPriceScore.value >= 60) {
+        return 'Bon deal';
+    }
+
+    if (qualityPriceScore.value >= 40) {
+        return 'Moyen';
+    }
+
+    return 'Faible';
+});
+
+const scoreBorderColor = computed(() => {
+    if (qualityPriceScore.value >= 80) {
+        return 'border-dealytics-cyan/50 bg-dealytics-cyan/10';
+    }
+
+    if (qualityPriceScore.value >= 60) {
+        return 'border-dealytics-purple/50 bg-dealytics-purple/10';
+    }
+
+    if (qualityPriceScore.value >= 40) {
+        return 'border-yellow-400/50 bg-yellow-400/10';
+    }
+
+    return 'border-border bg-secondary/50';
+});
+
+const scoreDetails = computed(() => {
+    const dealRatingRaw = dealRating.value;
+    const savings = savingsPercent.value;
+
+    return {
+        dealVal: Math.round(Math.min(dealRatingRaw * 10, 100)),
+        dealLabel: `${dealRatingRaw.toFixed(1)}/10`,
+        savingsVal: Math.round(savings),
+        savingsLabel: `${Math.round(savings)}%`,
+        qualityVal: Math.round(
+            metacriticScore.value > 0
+                ? metacriticScore.value
+                : steamRatingPercent.value > 0
+                    ? steamRatingPercent.value
+                    : 50,
+        ),
+        qualityLabel: metacriticScore.value > 0
+            ? `${Math.round(metacriticScore.value)}/100`
+            : steamRatingPercent.value > 0
+                ? `${Math.round(steamRatingPercent.value)}%`
+                : 'N/A',
+        qualitySource: metacriticScore.value > 0 ? 'Metacritic' : steamRatingPercent.value > 0 ? 'Steam' : 'Qualité',
+    };
+});
+
 const cheapestDate = computed(() =>
     game.value
         ? new Date(game.value.cheapestPriceEver.date * 1000).toLocaleDateString('fr-FR', {
@@ -200,6 +273,31 @@ onMounted(async () => {
         const data: GameData = await response.json();
         game.value = data;
 
+        // Fetch deal info from deals LIST endpoint (has dealRating + metacritic)
+        // The single deal endpoint /deals?id=X does NOT return dealRating
+        if (data.info?.title) {
+            try {
+                const params = new URLSearchParams();
+                params.set('sortBy', 'Deal Rating');
+                params.set('title', data.info.title);
+                params.set('exact', '1');
+                params.set('pageSize', '1');
+
+                const dealResponse = await fetch(
+                    `https://www.cheapshark.com/api/1.0/deals?${params.toString()}`,
+                );
+                const dealList = await dealResponse.json();
+
+                if (Array.isArray(dealList) && dealList.length > 0) {
+                    dealRating.value = parseFloat(dealList[0].dealRating || '0');
+                    metacriticScore.value = parseFloat(dealList[0].metacriticScore || '0');
+                    steamRatingPercent.value = parseFloat(dealList[0].steamRatingPercent || '0');
+                }
+            } catch {
+                // Score will use fallback values
+            }
+        }
+
         // Build price history from deals (CheapShark doesn't have a dedicated history endpoint per game,
         // but we can use the cheapest price ever + current deals to build a simplified view)
         const points: PricePoint[] = [];
@@ -266,11 +364,11 @@ onMounted(async () => {
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <!-- Back button -->
         <Link
-            href="/search"
+            href="/"
             class="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
             <ArrowLeft class="size-4" />
-            Retour à la recherche
+            Retour à l'accueil
         </Link>
 
         <!-- Loading state -->
@@ -528,18 +626,53 @@ onMounted(async () => {
                             <div class="flex items-center justify-between border-t border-border/50 pt-3">
                                 <dt class="text-muted-foreground">Score qualité/prix</dt>
                                 <dd class="flex items-center gap-2">
-                                    <div
-                                        class="flex size-9 items-center justify-center rounded-full border text-sm font-bold"
-                                        :class="[
-                                            scoreColor,
-                                            qualityPriceScore >= 80 ? 'border-dealytics-cyan/50 bg-dealytics-cyan/10' :
-                                            qualityPriceScore >= 60 ? 'border-dealytics-purple/50 bg-dealytics-purple/10' :
-                                            qualityPriceScore >= 40 ? 'border-yellow-400/50 bg-yellow-400/10' :
-                                            'border-border bg-secondary/50'
-                                        ]"
-                                    >
-                                        {{ qualityPriceScore }}
-                                    </div>
+                                    <TooltipProvider :delay-duration="200">
+                                        <Tooltip>
+                                            <TooltipTrigger as-child>
+                                                <div
+                                                    class="flex size-9 cursor-help items-center justify-center rounded-full border text-sm font-bold transition-transform hover:scale-110"
+                                                    :class="[scoreColor, scoreBorderColor]"
+                                                >
+                                                    {{ qualityPriceScore }}
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent
+                                                side="left"
+                                                :side-offset="8"
+                                                class="w-56 border-border/50 bg-card p-3 text-card-foreground shadow-xl"
+                                            >
+                                                <div class="space-y-2.5">
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="text-xs font-semibold" :class="scoreColor">{{ scoreLabel }}</span>
+                                                        <span class="text-xs font-bold" :class="scoreColor">{{ qualityPriceScore }}/100</span>
+                                                    </div>
+                                                    <div class="space-y-1.5">
+                                                        <div class="flex items-center justify-between text-[11px]">
+                                                            <span class="text-muted-foreground">Note du deal</span>
+                                                            <span class="font-medium">{{ scoreDetails.dealLabel }}</span>
+                                                        </div>
+                                                        <div class="h-1 overflow-hidden rounded-full bg-secondary">
+                                                            <div class="h-full rounded-full bg-dealytics-purple transition-all" :style="{ width: `${scoreDetails.dealVal}%` }" />
+                                                        </div>
+                                                        <div class="flex items-center justify-between text-[11px]">
+                                                            <span class="text-muted-foreground">Réduction</span>
+                                                            <span class="font-medium">{{ scoreDetails.savingsLabel }}</span>
+                                                        </div>
+                                                        <div class="h-1 overflow-hidden rounded-full bg-secondary">
+                                                            <div class="h-full rounded-full bg-dealytics-cyan transition-all" :style="{ width: `${scoreDetails.savingsVal}%` }" />
+                                                        </div>
+                                                        <div class="flex items-center justify-between text-[11px]">
+                                                            <span class="text-muted-foreground">{{ scoreDetails.qualitySource }}</span>
+                                                            <span class="font-medium">{{ scoreDetails.qualityLabel }}</span>
+                                                        </div>
+                                                        <div class="h-1 overflow-hidden rounded-full bg-secondary">
+                                                            <div class="h-full rounded-full bg-dealytics-pink transition-all" :style="{ width: `${scoreDetails.qualityVal}%` }" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
                                     <span class="text-xs" :class="scoreColor">/100</span>
                                 </dd>
                             </div>
@@ -554,8 +687,8 @@ onMounted(async () => {
             <Star class="mb-4 size-16 text-muted-foreground/20" />
             <h3 class="font-heading text-lg font-semibold">Jeu introuvable</h3>
             <p class="mt-1 text-sm text-muted-foreground">Ce jeu n'existe pas ou n'est plus disponible.</p>
-            <Link href="/search" class="mt-4 text-sm text-dealytics-purple hover:underline">
-                Retour à la recherche
+            <Link href="/" class="mt-4 text-sm text-dealytics-purple hover:underline">
+                Retour à l'accueil
             </Link>
         </div>
     </div>

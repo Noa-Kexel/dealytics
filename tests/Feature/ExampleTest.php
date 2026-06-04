@@ -9,12 +9,15 @@ class ExampleTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_returns_a_successful_response()
+    public function test_returns_a_successful_response(): void
     {
         $this->get(route('home'))
-            ->assertRedirect(route('search'));
-
-        $this->get(route('search'))
             ->assertOk();
+    }
+
+    public function test_search_redirects_to_home(): void
+    {
+        $this->get('/search')
+            ->assertRedirect(route('home'));
     }
 }

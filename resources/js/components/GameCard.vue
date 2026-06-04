@@ -2,6 +2,12 @@
 import { router } from '@inertiajs/vue3';
 import { Flame, Star, Heart } from 'lucide-vue-next';
 import { computed } from 'vue';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Deal {
     dealID: string;
@@ -68,6 +74,39 @@ const scoreColor = computed(() => {
     }
 
     return 'text-muted-foreground border-border bg-secondary/50';
+});
+
+const scoreLabel = computed(() => {
+    if (qualityPriceScore.value >= 80) {
+        return 'Excellent';
+    }
+
+    if (qualityPriceScore.value >= 60) {
+        return 'Bon deal';
+    }
+
+    if (qualityPriceScore.value >= 40) {
+        return 'Moyen';
+    }
+
+    return 'Faible';
+});
+
+const scoreDetails = computed(() => {
+    const dealRatingRaw = parseFloat(props.deal.dealRating) || 0;
+    const savings = parseFloat(props.deal.savings) || 0;
+    const metacritic = parseFloat(props.deal.metacriticScore) || 0;
+    const steamRating = parseFloat(props.deal.steamRatingPercent) || 0;
+
+    return {
+        dealVal: Math.round(dealRatingRaw * 10),
+        dealLabel: `${dealRatingRaw.toFixed(1)}/10`,
+        savingsVal: Math.round(savings),
+        savingsLabel: `${Math.round(savings)}%`,
+        qualityVal: Math.round(metacritic > 0 ? metacritic : steamRating > 0 ? steamRating : 50),
+        qualityLabel: metacritic > 0 ? `${Math.round(metacritic)}/100` : steamRating > 0 ? `${Math.round(steamRating)}%` : 'N/A',
+        qualitySource: metacritic > 0 ? 'Metacritic' : steamRating > 0 ? 'Steam' : 'Qualité',
+    };
 });
 
 // Store logos mapping (CheapShark store IDs)
@@ -212,13 +251,53 @@ function toggleFavorite(e: Event) {
                         ${{ normalPrice.toFixed(2) }}
                     </span>
                 </div>
-                <div
-                    class="flex size-8 items-center justify-center rounded-full border text-[11px] font-bold"
-                    :class="scoreColor"
-                    :title="`Score qualité/prix : ${qualityPriceScore}/100`"
-                >
-                    {{ qualityPriceScore }}
-                </div>
+                <TooltipProvider :delay-duration="200">
+                    <Tooltip>
+                        <TooltipTrigger as-child @click.stop>
+                            <div
+                                class="flex size-8 cursor-help items-center justify-center rounded-full border text-[11px] font-bold transition-transform hover:scale-110"
+                                :class="scoreColor"
+                            >
+                                {{ qualityPriceScore }}
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                            side="top"
+                            :side-offset="8"
+                            class="w-52 border-border/50 bg-card p-3 text-card-foreground shadow-xl"
+                        >
+                            <div class="space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-semibold" :class="scoreColor.split(' ')[0]">{{ scoreLabel }}</span>
+                                    <span class="text-xs font-bold" :class="scoreColor.split(' ')[0]">{{ qualityPriceScore }}/100</span>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted-foreground">Note du deal</span>
+                                        <span class="font-medium">{{ scoreDetails.dealLabel }}</span>
+                                    </div>
+                                    <div class="h-1 overflow-hidden rounded-full bg-secondary">
+                                        <div class="h-full rounded-full bg-dealytics-purple transition-all" :style="{ width: `${scoreDetails.dealVal}%` }" />
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted-foreground">Réduction</span>
+                                        <span class="font-medium">{{ scoreDetails.savingsLabel }}</span>
+                                    </div>
+                                    <div class="h-1 overflow-hidden rounded-full bg-secondary">
+                                        <div class="h-full rounded-full bg-dealytics-cyan transition-all" :style="{ width: `${scoreDetails.savingsVal}%` }" />
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted-foreground">{{ scoreDetails.qualitySource }}</span>
+                                        <span class="font-medium">{{ scoreDetails.qualityLabel }}</span>
+                                    </div>
+                                    <div class="h-1 overflow-hidden rounded-full bg-secondary">
+                                        <div class="h-full rounded-full bg-dealytics-pink transition-all" :style="{ width: `${scoreDetails.qualityVal}%` }" />
+                                    </div>
+                                </div>
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
         </div>
     </div>
