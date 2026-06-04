@@ -175,17 +175,28 @@ const scoreBorderColor = computed(() => {
 });
 
 const scoreDetails = computed(() => {
-    const dealVal = Math.round(Math.min(dealRating.value * 10, 100));
-    const savingsVal = Math.round(Math.min(savingsPercent.value * 1.2, 100));
-    const qualityVal = Math.round(
-        metacriticScore.value > 0
-            ? metacriticScore.value
-            : steamRatingPercent.value > 0
-                ? steamRatingPercent.value
-                : 50,
-    );
+    const dealRatingRaw = dealRating.value;
+    const savings = savingsPercent.value;
 
-    return { dealVal, savingsVal, qualityVal };
+    return {
+        dealVal: Math.round(Math.min(dealRatingRaw * 10, 100)),
+        dealLabel: `${dealRatingRaw.toFixed(1)}/10`,
+        savingsVal: Math.round(savings),
+        savingsLabel: `${Math.round(savings)}%`,
+        qualityVal: Math.round(
+            metacriticScore.value > 0
+                ? metacriticScore.value
+                : steamRatingPercent.value > 0
+                    ? steamRatingPercent.value
+                    : 50,
+        ),
+        qualityLabel: metacriticScore.value > 0
+            ? `${Math.round(metacriticScore.value)}/100`
+            : steamRatingPercent.value > 0
+                ? `${Math.round(steamRatingPercent.value)}%`
+                : 'N/A',
+        qualitySource: metacriticScore.value > 0 ? 'Metacritic' : steamRatingPercent.value > 0 ? 'Steam' : 'Qualité',
+    };
 });
 
 const cheapestDate = computed(() =>
@@ -262,20 +273,26 @@ onMounted(async () => {
         const data: GameData = await response.json();
         game.value = data;
 
-        // Fetch best deal details for consistent score (dealRating, metacritic)
-        if (data.deals.length > 0) {
-            const best = data.deals.reduce((b, d) =>
-                parseFloat(d.price) < parseFloat(b.price) ? d : b,
-            );
-
+        // Fetch deal info from deals LIST endpoint (has dealRating + metacritic)
+        // The single deal endpoint /deals?id=X does NOT return dealRating
+        if (data.info?.title) {
             try {
+                const params = new URLSearchParams();
+                params.set('sortBy', 'Deal Rating');
+                params.set('title', data.info.title);
+                params.set('exact', '1');
+                params.set('pageSize', '1');
+
                 const dealResponse = await fetch(
-                    `https://www.cheapshark.com/api/1.0/deals?id=${best.dealID}`,
+                    `https://www.cheapshark.com/api/1.0/deals?${params.toString()}`,
                 );
-                const dealData = await dealResponse.json();
-                dealRating.value = parseFloat(dealData.gameInfo?.dealRating || '0');
-                metacriticScore.value = parseFloat(dealData.gameInfo?.metacriticScore || '0');
-                steamRatingPercent.value = parseFloat(dealData.gameInfo?.steamRatingPercent || '0');
+                const dealList = await dealResponse.json();
+
+                if (Array.isArray(dealList) && dealList.length > 0) {
+                    dealRating.value = parseFloat(dealList[0].dealRating || '0');
+                    metacriticScore.value = parseFloat(dealList[0].metacriticScore || '0');
+                    steamRatingPercent.value = parseFloat(dealList[0].steamRatingPercent || '0');
+                }
             } catch {
                 // Score will use fallback values
             }
@@ -632,21 +649,21 @@ onMounted(async () => {
                                                     <div class="space-y-1.5">
                                                         <div class="flex items-center justify-between text-[11px]">
                                                             <span class="text-muted-foreground">Note du deal</span>
-                                                            <span class="font-medium">{{ scoreDetails.dealVal }}%</span>
+                                                            <span class="font-medium">{{ scoreDetails.dealLabel }}</span>
                                                         </div>
                                                         <div class="h-1 overflow-hidden rounded-full bg-secondary">
                                                             <div class="h-full rounded-full bg-dealytics-purple transition-all" :style="{ width: `${scoreDetails.dealVal}%` }" />
                                                         </div>
                                                         <div class="flex items-center justify-between text-[11px]">
                                                             <span class="text-muted-foreground">Réduction</span>
-                                                            <span class="font-medium">{{ scoreDetails.savingsVal }}%</span>
+                                                            <span class="font-medium">{{ scoreDetails.savingsLabel }}</span>
                                                         </div>
                                                         <div class="h-1 overflow-hidden rounded-full bg-secondary">
                                                             <div class="h-full rounded-full bg-dealytics-cyan transition-all" :style="{ width: `${scoreDetails.savingsVal}%` }" />
                                                         </div>
                                                         <div class="flex items-center justify-between text-[11px]">
-                                                            <span class="text-muted-foreground">Qualité du jeu</span>
-                                                            <span class="font-medium">{{ scoreDetails.qualityVal }}%</span>
+                                                            <span class="text-muted-foreground">{{ scoreDetails.qualitySource }}</span>
+                                                            <span class="font-medium">{{ scoreDetails.qualityLabel }}</span>
                                                         </div>
                                                         <div class="h-1 overflow-hidden rounded-full bg-secondary">
                                                             <div class="h-full rounded-full bg-dealytics-pink transition-all" :style="{ width: `${scoreDetails.qualityVal}%` }" />

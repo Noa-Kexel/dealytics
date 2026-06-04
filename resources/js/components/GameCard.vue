@@ -93,16 +93,20 @@ const scoreLabel = computed(() => {
 });
 
 const scoreDetails = computed(() => {
-    const dealRating = parseFloat(props.deal.dealRating) || 0;
+    const dealRatingRaw = parseFloat(props.deal.dealRating) || 0;
     const savings = parseFloat(props.deal.savings) || 0;
     const metacritic = parseFloat(props.deal.metacriticScore) || 0;
     const steamRating = parseFloat(props.deal.steamRatingPercent) || 0;
 
-    const dealVal = Math.round(Math.min(dealRating * 10, 100));
-    const savingsVal = Math.round(Math.min(savings * 1.2, 100));
-    const qualityVal = Math.round(metacritic > 0 ? metacritic : steamRating > 0 ? steamRating : 50);
-
-    return { dealVal, savingsVal, qualityVal };
+    return {
+        dealVal: Math.round(dealRatingRaw * 10),
+        dealLabel: `${dealRatingRaw.toFixed(1)}/10`,
+        savingsVal: Math.round(savings),
+        savingsLabel: `${Math.round(savings)}%`,
+        qualityVal: Math.round(metacritic > 0 ? metacritic : steamRating > 0 ? steamRating : 50),
+        qualityLabel: metacritic > 0 ? `${Math.round(metacritic)}/100` : steamRating > 0 ? `${Math.round(steamRating)}%` : 'N/A',
+        qualitySource: metacritic > 0 ? 'Metacritic' : steamRating > 0 ? 'Steam' : 'Qualité',
+    };
 });
 
 // Store logos mapping (CheapShark store IDs)
@@ -270,21 +274,21 @@ function toggleFavorite(e: Event) {
                                 <div class="space-y-1.5">
                                     <div class="flex items-center justify-between text-[11px]">
                                         <span class="text-muted-foreground">Note du deal</span>
-                                        <span class="font-medium">{{ scoreDetails.dealVal }}%</span>
+                                        <span class="font-medium">{{ scoreDetails.dealLabel }}</span>
                                     </div>
                                     <div class="h-1 overflow-hidden rounded-full bg-secondary">
                                         <div class="h-full rounded-full bg-dealytics-purple transition-all" :style="{ width: `${scoreDetails.dealVal}%` }" />
                                     </div>
                                     <div class="flex items-center justify-between text-[11px]">
                                         <span class="text-muted-foreground">Réduction</span>
-                                        <span class="font-medium">{{ scoreDetails.savingsVal }}%</span>
+                                        <span class="font-medium">{{ scoreDetails.savingsLabel }}</span>
                                     </div>
                                     <div class="h-1 overflow-hidden rounded-full bg-secondary">
                                         <div class="h-full rounded-full bg-dealytics-cyan transition-all" :style="{ width: `${scoreDetails.savingsVal}%` }" />
                                     </div>
                                     <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-muted-foreground">Qualité du jeu</span>
-                                        <span class="font-medium">{{ scoreDetails.qualityVal }}%</span>
+                                        <span class="text-muted-foreground">{{ scoreDetails.qualitySource }}</span>
+                                        <span class="font-medium">{{ scoreDetails.qualityLabel }}</span>
                                     </div>
                                     <div class="h-1 overflow-hidden rounded-full bg-secondary">
                                         <div class="h-full rounded-full bg-dealytics-pink transition-all" :style="{ width: `${scoreDetails.qualityVal}%` }" />
