@@ -23,7 +23,7 @@ import {
     Flame,
     Check,
 } from 'lucide-vue-next';
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Bar } from 'vue-chartjs';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,10 +37,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAlerts } from '@/composables/useAlerts';
 import { useBudget } from '@/composables/useBudget';
+import { useFavorites } from '@/composables/useFavorites';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
-const { alerts, getActiveAlerts, getReachedAlerts, removeAlert, checkAlerts } = useAlerts();
+const { alerts, loadAlerts, getActiveAlerts, getReachedAlerts, removeAlert, checkAlerts } = useAlerts();
 const {
     budget,
     totalSpent,
@@ -48,13 +49,15 @@ const {
     remaining,
     budgetPercent,
     isOverBudget,
+    loadBudget,
     setLimit,
     addPurchase,
     removePurchase,
-    getSpendingHistory,
+    getSpendingHistoryAsync,
 } = useBudget();
 
-const favorites = ref<{ gameID: string; title: string; thumb: string; addedAt: string }[]>([]);
+const { favorites: favoritesData, loadFavorites } = useFavorites();
+const favorites = computed(() => favoritesData.value);
 const topDeals = ref<{ dealID: string; title: string; salePrice: string; normalPrice: string; savings: string; thumb: string; gameID: string }[]>([]);
 const loadingDeals = ref(true);
 
@@ -69,14 +72,12 @@ const newPurchaseOriginal = ref('');
 const newPurchaseStore = ref('');
 
 // Spending chart
-const spendingHistory = ref(getSpendingHistory());
-
 const spendingChartData = ref({
-    labels: spendingHistory.value.map((h) => h.month),
+    labels: [] as string[],
     datasets: [
         {
             label: 'Dépenses ($)',
-            data: spendingHistory.value.map((h) => h.spent),
+            data: [] as number[],
             backgroundColor: 'rgba(168, 85, 247, 0.7)',
             borderColor: '#A855F7',
             borderWidth: 1,
@@ -127,12 +128,12 @@ function saveBudgetLimit() {
     }
 }
 
-function submitPurchase() {
+async function submitPurchase() {
     const price = parseFloat(newPurchasePrice.value);
     const original = parseFloat(newPurchaseOriginal.value) || price;
 
     if (newPurchaseTitle.value && price > 0) {
-        addPurchase(newPurchaseTitle.value, price, original, newPurchaseStore.value || 'N/A');
+        await addPurchase(newPurchaseTitle.value, price, original, newPurchaseStore.value || 'N/A');
         newPurchaseTitle.value = '';
         newPurchasePrice.value = '';
         newPurchaseOriginal.value = '';
@@ -141,13 +142,13 @@ function submitPurchase() {
     }
 }
 
-function handleRemovePurchase(id: string) {
-    removePurchase(id);
+async function handleRemovePurchase(id: string | number) {
+    await removePurchase(id);
     refreshChart();
 }
 
-function refreshChart() {
-    const history = getSpendingHistory();
+async function refreshChart() {
+    const history = await getSpendingHistoryAsync();
     spendingChartData.value = {
         labels: history.map((h) => h.month),
         datasets: [
@@ -164,15 +165,18 @@ function refreshChart() {
 }
 
 onMounted(async () => {
-    // Load favorites
-    try {
-        favorites.value = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
-    } catch {
-        favorites.value = [];
-    }
+    // Load all data from DB (or localStorage for guests)
+    await Promise.all([
+        loadFavorites(),
+        loadAlerts(),
+        loadBudget(),
+    ]);
 
-    // Check alerts
+    // Check alerts against current prices
     checkAlerts();
+
+    // Load spending chart
+    refreshChart();
 
     // Load top deals
     try {

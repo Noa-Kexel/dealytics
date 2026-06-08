@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'rawg' => [
+        'key' => env('RAWG_API_KEY'),
+        'base_url' => 'https://api.rawg.io/api',
+    ],
+
+    'itad' => [
+        'key' => env('ITAD_API_KEY'),
+        'base_url' => 'https://api.isthereanydeal.com',
+    ],
+
 ];

@@ -242,3 +242,34 @@
 .animate-card-in {
     animation: card-in 0.35s ease both;
 }
+
+/* Heart favorite animation */
+@keyframes heart-pop {
+    0% {
+        transform: scale(1);
+    }
+    30% {
+        transform: scale(1.4);
+    }
+    60% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.animate-heart-pop {
+    animation: heart-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+/* Screenshot carousel fade transition */
+.screenshot-fade-enter-active,
+.screenshot-fade-leave-active {
+    transition: opacity 0.25s ease;
+}
+
+.screenshot-fade-enter-from,
+.screenshot-fade-leave-to {
+    opacity: 0;
+}

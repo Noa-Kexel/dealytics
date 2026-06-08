@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useFavorites } from '@/composables/useFavorites';
 
 interface Deal {
     dealID: string;
@@ -82,7 +83,10 @@ async function fetchStores() {
     }
 }
 
+const { loadFavorites } = useFavorites();
+
 onMounted(() => {
+    loadFavorites();
     fetchStores();
     loadTopDeals();
 });
@@ -191,7 +195,11 @@ clearTimeout(debounceTimer.value);
 // Re-search when filters change
 watch([selectedStore, maxPrice, sortBy, onSaleOnly], () => {
     if (hasSearched.value) {
-        searchDeals();
+        if (searchQuery.value.trim()) {
+            searchDeals();
+        } else {
+            loadTopDeals();
+        }
     }
 });
 
@@ -234,20 +242,6 @@ async function loadTopDeals() {
             />
 
             <div class="relative">
-                <!-- Badge -->
-                <div
-                    class="mb-4 inline-flex items-center gap-2 rounded-full border border-dealytics-cyan/30 bg-dealytics-cyan/10 px-3 py-1"
-                >
-                    <span
-                        class="size-2 animate-pulse rounded-full bg-dealytics-cyan"
-                    />
-                    <span
-                        class="text-xs font-medium tracking-wider text-dealytics-cyan uppercase"
-                    >
-                        Suivi des prix en direct
-                    </span>
-                </div>
-
                 <!-- Title -->
                 <h1
                     class="font-heading text-4xl leading-tight font-extrabold md:text-5xl lg:text-6xl"
