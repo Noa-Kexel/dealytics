@@ -10,12 +10,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAlerts } from '@/composables/useAlerts';
+import { useFavorites } from '@/composables/useFavorites';
+import type { FavoriteGame } from '@/composables/useFavorites';
 
-interface FavoriteGame {
-    gameID: string;
-    title: string;
-    thumb: string;
-    addedAt: string;
+interface EnrichedFavorite extends FavoriteGame {
     currentPrice?: number;
     normalPrice?: number;
     savings?: number;
@@ -24,35 +22,50 @@ interface FavoriteGame {
 }
 
 const { getActiveAlerts } = useAlerts();
+const { favorites: rawFavorites, loadFavorites, removeFavorite: removeFav } = useFavorites();
 
-const favorites = ref<FavoriteGame[]>([]);
+const enrichedFavorites = ref<EnrichedFavorite[]>([]);
 const sortBy = ref('date');
-const totalSaved = ref(0);
-const avgScore = ref(0);
+
+// Reactive computed stats — update automatically when enrichedFavorites change
+const totalSaved = computed(() => {
+    return Math.round(
+        enrichedFavorites.value.reduce((acc, f) => {
+            if (f.normalPrice !== undefined && f.currentPrice !== undefined) {
+                return acc + (f.normalPrice - f.currentPrice);
+            }
+
+            return acc;
+        }, 0),
+    );
+});
+
+const avgScore = computed(() => {
+    const scored = enrichedFavorites.value.filter((f) => f.dealRating !== undefined && f.dealRating > 0);
+
+    if (scored.length === 0) {
+        return 0;
+    }
+
+    const sum = scored.reduce((acc, f) => acc + (f.dealRating || 0), 0);
+
+    return Math.round((sum / scored.length) * 10);
+});
 
 onMounted(async () => {
-    loadFavorites();
+    await loadFavorites();
+    enrichedFavorites.value = rawFavorites.value.map((f) => ({
+        ...f,
+        loading: true,
+    }));
     await fetchPrices();
 });
 
-function loadFavorites() {
-    try {
-        const stored = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
-        favorites.value = stored.map((f: FavoriteGame) => ({ ...f, loading: true }));
-    } catch {
-        favorites.value = [];
-    }
-}
-
 async function fetchPrices() {
-    let saved = 0;
-    let scoreSum = 0;
-    let scoreCount = 0;
-
-    for (const fav of favorites.value) {
+    for (const fav of enrichedFavorites.value) {
         try {
             const response = await fetch(
-                `https://www.cheapshark.com/api/1.0/games?id=${fav.gameID}`,
+                `https://www.cheapshark.com/api/1.0/games?id=${fav.game_id}`,
             );
             const data = await response.json();
 
@@ -65,9 +78,6 @@ async function fetchPrices() {
                 fav.normalPrice = parseFloat(best.retailPrice);
                 fav.savings = parseFloat(best.savings);
                 fav.dealRating = parseFloat(best.dealRating || '0');
-                saved += fav.normalPrice - fav.currentPrice;
-                scoreSum += fav.dealRating;
-                scoreCount++;
             }
         } catch {
             // skip
@@ -75,26 +85,18 @@ async function fetchPrices() {
             fav.loading = false;
         }
     }
-
-    totalSaved.value = Math.round(saved);
-    avgScore.value = scoreCount > 0 ? Math.round((scoreSum / scoreCount) * 10) : 0;
 }
 
-function removeFavorite(gameID: string) {
-    favorites.value = favorites.value.filter((f) => f.gameID !== gameID);
-    localStorage.setItem(
-        'dealytics_favorites',
-        JSON.stringify(
-            favorites.value.map(({ gameID, title, thumb, addedAt }) => ({ gameID, title, thumb, addedAt })),
-        ),
-    );
+async function removeFavorite(gameId: string) {
+    await removeFav(gameId);
+    enrichedFavorites.value = enrichedFavorites.value.filter((f) => f.game_id !== gameId);
 }
 
 const sortedFavorites = computed(() => {
-    const sorted = [...favorites.value];
+    const sorted = [...enrichedFavorites.value];
 
     if (sortBy.value === 'date') {
-        sorted.sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+        sorted.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
     } else if (sortBy.value === 'title') {
         sorted.sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy.value === 'price') {
@@ -128,7 +130,7 @@ const sortedFavorites = computed(() => {
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
                     <Heart class="size-4 text-dealytics-pink" />
                 </div>
-                <div class="text-2xl font-bold text-dealytics-purple">{{ favorites.length }}</div>
+                <div class="text-2xl font-bold text-dealytics-purple">{{ enrichedFavorites.length }}</div>
                 <div class="text-xs text-muted-foreground">Jeux suivis</div>
             </div>
             <div class="border-gradient rounded-xl p-4">
@@ -179,8 +181,8 @@ const sortedFavorites = computed(() => {
         <div v-if="sortedFavorites.length > 0" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Link
                 v-for="fav in sortedFavorites"
-                :key="fav.gameID"
-                :href="`/game/${fav.gameID}`"
+                :key="fav.game_id"
+                :href="`/game/${fav.game_id}`"
                 class="group border-gradient overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02]"
             >
                 <div class="relative aspect-[16/10] overflow-hidden bg-secondary">
@@ -216,7 +218,7 @@ const sortedFavorites = computed(() => {
                     <!-- Remove button -->
                     <button
                         class="absolute bottom-2 right-2 flex size-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-all hover:bg-red-500/50"
-                        @click.prevent="removeFavorite(fav.gameID)"
+                        @click.prevent="removeFavorite(fav.game_id)"
                     >
                         <Trash2 class="size-3.5 text-white/70" />
                     </button>
@@ -241,7 +243,7 @@ const sortedFavorites = computed(() => {
                         <div v-else class="text-xs text-muted-foreground">Prix indisponible</div>
 
                         <span class="text-[10px] text-muted-foreground">
-                            {{ new Date(fav.addedAt).toLocaleDateString('fr-FR') }}
+                            {{ new Date(fav.created_at || '').toLocaleDateString('fr-FR') }}
                         </span>
                     </div>
                 </div>

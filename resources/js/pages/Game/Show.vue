@@ -10,8 +10,16 @@ import {
     TrendingDown,
     DollarSign,
     Calendar,
+    Gamepad2,
+    Monitor,
+    Code,
+    Tag,
+    Clock,
+    ChevronLeft,
+    ChevronRight,
+    Image as ImageIcon,
 } from 'lucide-vue-next';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import DealBadge from '@/components/DealBadge.vue';
 import PriceHistoryChart from '@/components/PriceHistoryChart.vue';
 import { Button } from '@/components/ui/button';
@@ -23,6 +31,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useAlerts } from '@/composables/useAlerts';
+import { useFavorites } from '@/composables/useFavorites';
 
 interface GameDeal {
     storeID: string;
@@ -55,6 +64,46 @@ interface PricePoint {
     store: string;
 }
 
+interface RawgData {
+    id: number;
+    name: string;
+    description: string;
+    released: string | null;
+    background_image: string | null;
+    rating: number;
+    ratings_count: number;
+    metacritic: number | null;
+    playtime: number;
+    genres: string[];
+    platforms: string[];
+    developers: string[];
+    publishers: string[];
+    tags: string[];
+    screenshots: string[];
+    website: string | null;
+}
+
+interface ItadDeal {
+    shop: string;
+    shopId: number;
+    price: number;
+    currency: string;
+    regularPrice: number;
+    cut: number;
+    url: string | null;
+    drm: string[];
+    platforms: string[];
+    storeLow: number | null;
+}
+
+interface ItadData {
+    gameId: string;
+    title: string;
+    deals: ItadDeal[];
+    totalDeals: number;
+    historyLow: { price: number; currency: string } | null;
+}
+
 const page = usePage<{ gameId: string }>();
 const gameId = page.props.gameId;
 
@@ -65,6 +114,15 @@ const loading = ref(true);
 const priceHistory = ref<PricePoint[]>([]);
 const alertPrice = ref('');
 const alertSet = ref(false);
+
+// RAWG enrichment
+const rawg = ref<RawgData | null>(null);
+const rawgLoading = ref(false);
+const screenshotIndex = ref(0);
+
+// ITAD enrichment
+const itad = ref<ItadData | null>(null);
+const itadLoading = ref(false);
 
 // Extra deal info for consistent score calculation
 const dealRating = ref(0);
@@ -217,37 +275,26 @@ const steamHeaderImage = computed(() => {
     return game.value?.info.thumb || '';
 });
 
-// Favorite logic
-const isFavorite = computed(() => {
-    try {
-        const favs = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
+// Favorite logic (via composable — persists to DB when authenticated)
+const { favoriteIds, toggleFavorite: toggleFav } = useFavorites();
+const heartAnimating = ref(false);
 
-        return favs.some((f: { gameID: string }) => f.gameID === gameId);
-    } catch {
-        return false;
-    }
-});
+const isFavorite = computed(() => favoriteIds.value.has(gameId));
 
-function toggleFavorite() {
-    try {
-        const favs = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
-        const idx = favs.findIndex((f: { gameID: string }) => f.gameID === gameId);
+async function toggleFavorite() {
+    await toggleFav(
+        gameId,
+        game.value?.info.title || '',
+        game.value?.info.thumb || '',
+    );
 
-        if (idx >= 0) {
-            favs.splice(idx, 1);
-        } else {
-            favs.push({
-                gameID: gameId,
-                title: game.value?.info.title || '',
-                thumb: game.value?.info.thumb || '',
-                addedAt: new Date().toISOString(),
-            });
-        }
-
-        localStorage.setItem('dealytics_favorites', JSON.stringify(favs));
-    } catch {
-        // silently fail
-    }
+    // Trigger heart animation
+    heartAnimating.value = false;
+    await nextTick();
+    heartAnimating.value = true;
+    setTimeout(() => {
+        heartAnimating.value = false;
+    }, 400);
 }
 
 // Alert logic
@@ -266,7 +313,51 @@ function clearAlert() {
     alertPrice.value = '';
 }
 
+// RAWG screenshot navigation
+function prevScreenshot() {
+    if (rawg.value && rawg.value.screenshots.length > 0) {
+        screenshotIndex.value = (screenshotIndex.value - 1 + rawg.value.screenshots.length) % rawg.value.screenshots.length;
+    }
+}
+
+function nextScreenshot() {
+    if (rawg.value && rawg.value.screenshots.length > 0) {
+        screenshotIndex.value = (screenshotIndex.value + 1) % rawg.value.screenshots.length;
+    }
+}
+
+// Format RAWG date to French
+const rawgReleaseDate = computed(() => {
+    if (!rawg.value?.released) {
+        return null;
+    }
+
+    return new Date(rawg.value.released).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+});
+
+// Truncated description
+const shortDescription = ref(true);
+const descriptionText = computed(() => {
+    if (!rawg.value?.description) {
+        return '';
+    }
+
+    if (shortDescription.value && rawg.value.description.length > 300) {
+        return rawg.value.description.slice(0, 300) + '...';
+    }
+
+    return rawg.value.description;
+});
+
+const { loadFavorites } = useFavorites();
+
 onMounted(async () => {
+    loadFavorites();
+
     try {
         // Fetch game data
         const response = await fetch(`https://www.cheapshark.com/api/1.0/games?id=${gameId}`);
@@ -347,8 +438,41 @@ onMounted(async () => {
         const existingAlert = getAlert(gameId);
 
         if (existingAlert) {
-            alertPrice.value = existingAlert.targetPrice.toString();
+            alertPrice.value = (existingAlert.target_price ?? existingAlert.targetPrice ?? '').toString();
             alertSet.value = true;
+        }
+
+        // Fetch RAWG + ITAD enrichment data in parallel (non-blocking — page loads first)
+        if (data.info?.title) {
+            rawgLoading.value = true;
+            itadLoading.value = true;
+
+            const enrichTitle = encodeURIComponent(data.info.title);
+            const steamParam = data.info.steamAppID ? `?steamAppId=${data.info.steamAppID}` : '';
+
+            // Fire both requests in parallel
+            const [rawgResult, itadResult] = await Promise.allSettled([
+                fetch(`/api/rawg/${enrichTitle}`),
+                fetch(`/api/itad/${enrichTitle}${steamParam}`),
+            ]);
+
+            // Process RAWG
+            if (rawgResult.status === 'fulfilled' && rawgResult.value.ok) {
+                try {
+                    rawg.value = await rawgResult.value.json();
+                } catch { /* ignore */ }
+            }
+
+            rawgLoading.value = false;
+
+            // Process ITAD
+            if (itadResult.status === 'fulfilled' && itadResult.value.ok) {
+                try {
+                    itad.value = await itadResult.value.json();
+                } catch { /* ignore */ }
+            }
+
+            itadLoading.value = false;
         }
     } catch {
         // handle error
@@ -395,6 +519,25 @@ onMounted(async () => {
                             {{ game.info.title }}
                         </h1>
 
+                        <!-- RAWG metadata tags -->
+                        <div v-if="rawg" class="mt-2 flex flex-wrap items-center gap-2">
+                            <span
+                                v-for="genre in rawg.genres"
+                                :key="genre"
+                                class="rounded-full bg-dealytics-purple/30 px-2.5 py-0.5 text-[10px] font-medium text-dealytics-purple backdrop-blur-sm"
+                            >
+                                {{ genre }}
+                            </span>
+                            <span v-if="rawgReleaseDate" class="flex items-center gap-1 text-[10px] text-white/50">
+                                <Calendar class="size-2.5" />
+                                {{ rawgReleaseDate }}
+                            </span>
+                            <span v-if="rawg.rating > 0" class="flex items-center gap-1 rounded-full bg-dealytics-cyan/20 px-2 py-0.5 text-[10px] font-medium text-dealytics-cyan backdrop-blur-sm">
+                                <Star class="size-2.5 fill-dealytics-cyan" />
+                                {{ rawg.rating.toFixed(1) }}/5
+                            </span>
+                        </div>
+
                         <div class="mt-4 flex flex-wrap items-center gap-3">
                             <!-- Deal Badge -->
                             <DealBadge
@@ -428,6 +571,113 @@ onMounted(async () => {
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Left column: chart + deals -->
                 <div class="space-y-6 lg:col-span-2">
+                    <!-- RAWG Description -->
+                    <div v-if="rawgLoading" class="border-gradient rounded-xl p-6">
+                        <div class="mb-3 h-5 w-40 animate-pulse rounded bg-secondary" />
+                        <div class="space-y-2">
+                            <div class="h-3 w-full animate-pulse rounded bg-secondary" />
+                            <div class="h-3 w-5/6 animate-pulse rounded bg-secondary" />
+                            <div class="h-3 w-4/6 animate-pulse rounded bg-secondary" />
+                        </div>
+                    </div>
+                    <div v-else-if="rawg?.description" class="border-gradient rounded-xl p-6">
+                        <div class="mb-3 flex items-center gap-2">
+                            <Gamepad2 class="size-4 text-dealytics-purple" />
+                            <h2 class="font-heading text-lg font-semibold">À propos</h2>
+                        </div>
+                        <p class="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{{ descriptionText }}</p>
+                        <button
+                            v-if="rawg.description.length > 300"
+                            class="mt-2 text-xs font-medium text-dealytics-purple hover:underline"
+                            @click="shortDescription = !shortDescription"
+                        >
+                            {{ shortDescription ? 'Lire la suite ↓' : 'Réduire ↑' }}
+                        </button>
+
+                        <!-- Platforms & Developers inline -->
+                        <div v-if="rawg.platforms.length || rawg.developers.length" class="mt-4 flex flex-wrap gap-4 border-t border-border/50 pt-4">
+                            <div v-if="rawg.platforms.length" class="flex items-start gap-2">
+                                <Monitor class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                                <div class="flex flex-wrap gap-1">
+                                    <span
+                                        v-for="p in rawg.platforms"
+                                        :key="p"
+                                        class="rounded bg-secondary/80 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                                    >
+                                        {{ p }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div v-if="rawg.developers.length" class="flex items-start gap-2">
+                                <Code class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                                <span class="text-xs text-muted-foreground">{{ rawg.developers.join(', ') }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Tags -->
+                        <div v-if="rawg.tags.length" class="mt-3 flex flex-wrap gap-1.5">
+                            <span
+                                v-for="tag in rawg.tags"
+                                :key="tag"
+                                class="flex items-center gap-1 rounded-full bg-secondary/60 px-2 py-0.5 text-[10px] text-muted-foreground"
+                            >
+                                <Tag class="size-2" />
+                                {{ tag }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- RAWG Screenshots Gallery -->
+                    <div v-if="rawgLoading" class="border-gradient rounded-xl p-6">
+                        <div class="mb-3 h-5 w-32 animate-pulse rounded bg-secondary" />
+                        <div class="aspect-video w-full animate-pulse rounded-lg bg-secondary" />
+                    </div>
+                    <div v-else-if="rawg?.screenshots?.length" class="border-gradient rounded-xl p-6">
+                        <div class="mb-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <ImageIcon class="size-4 text-dealytics-cyan" />
+                                <h2 class="font-heading text-lg font-semibold">Screenshots</h2>
+                                <span class="text-xs text-muted-foreground">({{ screenshotIndex + 1 }}/{{ rawg.screenshots.length }})</span>
+                            </div>
+                            <div class="flex gap-1.5">
+                                <button
+                                    class="flex size-7 items-center justify-center rounded-lg bg-secondary/80 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                    @click="prevScreenshot"
+                                >
+                                    <ChevronLeft class="size-4" />
+                                </button>
+                                <button
+                                    class="flex size-7 items-center justify-center rounded-lg bg-secondary/80 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                    @click="nextScreenshot"
+                                >
+                                    <ChevronRight class="size-4" />
+                                </button>
+                            </div>
+                        </div>
+                        <div class="relative overflow-hidden rounded-lg">
+                            <Transition name="screenshot-fade" mode="out-in">
+                                <img
+                                    :key="screenshotIndex"
+                                    :src="rawg.screenshots[screenshotIndex]"
+                                    :alt="`Screenshot ${screenshotIndex + 1}`"
+                                    class="aspect-video w-full object-cover"
+                                />
+                            </Transition>
+                        </div>
+                        <!-- Thumbnail strip -->
+                        <div v-if="rawg.screenshots.length > 1" class="mt-3 flex gap-2 overflow-x-auto">
+                            <button
+                                v-for="(url, idx) in rawg.screenshots"
+                                :key="idx"
+                                class="shrink-0 overflow-hidden rounded-md border-2 transition-all"
+                                :class="idx === screenshotIndex ? 'border-dealytics-cyan opacity-100' : 'border-transparent opacity-50 hover:opacity-75'"
+                                @click="screenshotIndex = idx"
+                            >
+                                <img :src="url" :alt="`Thumb ${idx + 1}`" class="h-12 w-20 object-cover" />
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Price History Chart -->
                     <div class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center gap-2">
@@ -519,6 +769,80 @@ onMounted(async () => {
                             </a>
                         </div>
                     </div>
+
+                    <!-- ITAD Deals (IsThereAnyDeal — EUR prices) -->
+                    <div v-if="itadLoading" class="border-gradient rounded-xl p-6">
+                        <div class="mb-4 flex items-center gap-2">
+                            <div class="h-4 w-4 animate-pulse rounded bg-secondary" />
+                            <div class="h-5 w-56 animate-pulse rounded bg-secondary" />
+                        </div>
+                        <div class="space-y-2">
+                            <div v-for="i in 3" :key="i" class="h-12 animate-pulse rounded-lg bg-secondary/50" />
+                        </div>
+                    </div>
+                    <div v-else-if="itad?.deals?.length" class="border-gradient rounded-xl p-6">
+                        <div class="mb-4 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <TrendingDown class="size-4 text-dealytics-pink" />
+                                <h2 class="font-heading text-lg font-semibold">
+                                    Prix EUR ({{ itad.totalDeals }} offres)
+                                </h2>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <span>via</span>
+                                <span class="font-medium text-dealytics-pink">IsThereAnyDeal</span>
+                            </div>
+                        </div>
+
+                        <!-- ITAD historical low -->
+                        <div v-if="itad.historyLow" class="mb-3 flex items-center justify-between rounded-lg bg-dealytics-pink/5 px-3 py-2 text-xs">
+                            <span class="text-muted-foreground">Plus bas historique (EUR)</span>
+                            <span class="font-bold text-dealytics-pink">{{ itad.historyLow.price.toFixed(2) }}{{ itad.historyLow.currency === 'EUR' ? '€' : '$' }}</span>
+                        </div>
+
+                        <div class="space-y-2">
+                            <a
+                                v-for="(deal, idx) in itad.deals"
+                                :key="idx"
+                                :href="deal.url || '#'"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="flex items-center justify-between rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="flex size-8 items-center justify-center rounded-lg bg-background">
+                                        <Store class="size-4 text-muted-foreground" />
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium">{{ deal.shop }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <span v-if="deal.cut > 0" class="text-[10px] text-dealytics-pink">
+                                                -{{ deal.cut }}%
+                                            </span>
+                                            <span v-if="deal.drm.length" class="text-[10px] text-muted-foreground">
+                                                {{ deal.drm.join(', ') }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold text-dealytics-cyan">
+                                            {{ deal.price.toFixed(2) }}€
+                                        </div>
+                                        <div
+                                            v-if="deal.cut > 0"
+                                            class="text-[10px] text-muted-foreground line-through"
+                                        >
+                                            {{ deal.regularPrice.toFixed(2) }}€
+                                        </div>
+                                    </div>
+                                    <ExternalLink class="size-3.5 text-muted-foreground" />
+                                </div>
+                            </a>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Right column: actions -->
@@ -530,13 +854,16 @@ onMounted(async () => {
                         <div class="space-y-3">
                             <!-- Favorite button -->
                             <Button
-                                class="w-full gap-2"
+                                class="w-full gap-2 transition-all duration-200 active:scale-95"
                                 :variant="isFavorite ? 'default' : 'outline'"
                                 @click="toggleFavorite"
                             >
                                 <Heart
-                                    class="size-4"
-                                    :class="isFavorite ? 'fill-white' : ''"
+                                    class="size-4 transition-all duration-300"
+                                    :class="[
+                                        isFavorite ? 'fill-white' : '',
+                                        heartAnimating ? 'animate-heart-pop' : '',
+                                    ]"
                                 />
                                 {{ isFavorite ? 'Dans vos favoris' : 'Ajouter aux favoris' }}
                             </Button>
@@ -623,6 +950,50 @@ onMounted(async () => {
                                 <dt class="text-muted-foreground">Plus bas historique</dt>
                                 <dd class="font-medium text-dealytics-pink">${{ cheapestEver.toFixed(2) }}</dd>
                             </div>
+                            <!-- RAWG enriched info -->
+                            <template v-if="rawg">
+                                <div v-if="rawg.metacritic" class="flex justify-between">
+                                    <dt class="text-muted-foreground">Metacritic</dt>
+                                    <dd class="font-bold" :class="rawg.metacritic >= 75 ? 'text-green-400' : rawg.metacritic >= 50 ? 'text-yellow-400' : 'text-red-400'">
+                                        {{ rawg.metacritic }}/100
+                                    </dd>
+                                </div>
+                                <div v-if="rawg.playtime > 0" class="flex justify-between">
+                                    <dt class="flex items-center gap-1.5 text-muted-foreground">
+                                        <Clock class="size-3" />
+                                        Durée moyenne
+                                    </dt>
+                                    <dd class="font-medium">{{ rawg.playtime }}h</dd>
+                                </div>
+                                <div v-if="rawg.rating > 0" class="flex justify-between">
+                                    <dt class="text-muted-foreground">Note RAWG</dt>
+                                    <dd class="flex items-center gap-1 font-medium">
+                                        <Star class="size-3 fill-yellow-400 text-yellow-400" />
+                                        {{ rawg.rating.toFixed(1) }}/5
+                                        <span class="text-[10px] text-muted-foreground">({{ rawg.ratings_count }})</span>
+                                    </dd>
+                                </div>
+                                <div v-if="rawg.website" class="flex justify-between">
+                                    <dt class="text-muted-foreground">Site officiel</dt>
+                                    <dd>
+                                        <a :href="rawg.website" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-xs text-dealytics-purple hover:underline">
+                                            Visiter
+                                            <ExternalLink class="size-2.5" />
+                                        </a>
+                                    </dd>
+                                </div>
+                            </template>
+                            <!-- RAWG loading skeleton in sidebar -->
+                            <template v-else-if="rawgLoading">
+                                <div class="flex justify-between">
+                                    <div class="h-3 w-20 animate-pulse rounded bg-secondary" />
+                                    <div class="h-3 w-12 animate-pulse rounded bg-secondary" />
+                                </div>
+                                <div class="flex justify-between">
+                                    <div class="h-3 w-24 animate-pulse rounded bg-secondary" />
+                                    <div class="h-3 w-10 animate-pulse rounded bg-secondary" />
+                                </div>
+                            </template>
                             <div class="flex items-center justify-between border-t border-border/50 pt-3">
                                 <dt class="text-muted-foreground">Score qualité/prix</dt>
                                 <dd class="flex items-center gap-2">

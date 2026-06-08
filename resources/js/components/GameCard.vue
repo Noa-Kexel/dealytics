@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { Flame, Star, Heart } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref, nextTick } from 'vue';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useFavorites } from '@/composables/useFavorites';
 
 interface Deal {
     dealID: string;
@@ -135,43 +136,39 @@ const storeNames: Record<string, string> = {
 
 const storeName = computed(() => storeNames[props.deal.storeID] || 'Store');
 
+// Build a higher-resolution Steam image from the thumb URL
+const betterImage = computed(() => {
+    const steamMatch = props.deal.thumb.match(/\/steam\/apps\/(\d+)\//);
+
+    if (steamMatch) {
+        return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamMatch[1]}/header.jpg`;
+    }
+
+    return props.deal.thumb;
+});
+
 function openDeal() {
     router.visit(`/game/${props.deal.gameID}`);
 }
 
-// Favorite logic (localStorage)
-const isFavorite = computed(() => {
-    try {
-        const favs = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
+// Favorite logic (via composable — persists to DB when authenticated)
+const { favoriteIds, toggleFavorite: toggle } = useFavorites();
+const heartAnimating = ref(false);
 
-        return favs.some((f: { gameID: string }) => f.gameID === props.deal.gameID);
-    } catch {
-        return false;
-    }
-});
+const isFavorite = computed(() => favoriteIds.value.has(props.deal.gameID));
 
-function toggleFavorite(e: Event) {
+async function toggleFavorite(e: Event) {
     e.stopPropagation();
 
-    try {
-        const favs = JSON.parse(localStorage.getItem('dealytics_favorites') || '[]');
-        const idx = favs.findIndex((f: { gameID: string }) => f.gameID === props.deal.gameID);
+    await toggle(props.deal.gameID, props.deal.title, props.deal.thumb);
 
-        if (idx >= 0) {
-            favs.splice(idx, 1);
-        } else {
-            favs.push({
-                gameID: props.deal.gameID,
-                title: props.deal.title,
-                thumb: props.deal.thumb,
-                addedAt: new Date().toISOString(),
-            });
-        }
-
-        localStorage.setItem('dealytics_favorites', JSON.stringify(favs));
-    } catch {
-        // silently fail
-    }
+    // Trigger heart animation
+    heartAnimating.value = false;
+    await nextTick();
+    heartAnimating.value = true;
+    setTimeout(() => {
+        heartAnimating.value = false;
+    }, 400);
 }
 </script>
 
@@ -183,11 +180,11 @@ function toggleFavorite(e: Event) {
         <!-- Image -->
         <div class="relative aspect-16/10 overflow-hidden bg-secondary">
             <img
-                :src="deal.thumb"
+                :src="betterImage"
                 :alt="deal.title"
                 class="size-full object-cover transition-transform duration-500 group-hover:scale-110"
                 loading="lazy"
-                @error="($event.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 320 180%22><rect fill=%22%23151025%22 width=%22320%22 height=%22180%22/><text x=%2250%%22 y=%2250%%22 fill=%22%23555%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2214%22>No Image</text></svg>'"
+                @error="($event.target as HTMLImageElement).src = deal.thumb"
             />
 
             <!-- Badges overlay -->
@@ -210,17 +207,6 @@ function toggleFavorite(e: Event) {
             >
                 -{{ savingsPercent }}%
             </div>
-
-            <!-- Favorite button -->
-            <button
-                class="absolute bottom-2 right-2 flex size-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-all hover:bg-black/70"
-                @click="toggleFavorite"
-            >
-                <Heart
-                    class="size-3.5 transition-colors"
-                    :class="isFavorite ? 'fill-dealytics-pink text-dealytics-pink' : 'text-white/70'"
-                />
-            </button>
         </div>
 
         <!-- Content -->
@@ -251,15 +237,29 @@ function toggleFavorite(e: Event) {
                         ${{ normalPrice.toFixed(2) }}
                     </span>
                 </div>
-                <TooltipProvider :delay-duration="200">
-                    <Tooltip>
-                        <TooltipTrigger as-child @click.stop>
-                            <div
-                                class="flex size-8 cursor-help items-center justify-center rounded-full border text-[11px] font-bold transition-transform hover:scale-110"
-                                :class="scoreColor"
-                            >
-                                {{ qualityPriceScore }}
-                            </div>
+                <div class="flex items-center gap-1.5">
+                    <!-- Favorite button -->
+                    <button
+                        class="flex size-8 items-center justify-center rounded-full border border-border/50 bg-secondary/50 transition-all duration-200 hover:bg-secondary active:scale-90"
+                        @click="toggleFavorite"
+                    >
+                        <Heart
+                            class="size-3.5 transition-all duration-300"
+                            :class="[
+                                isFavorite ? 'fill-dealytics-pink text-dealytics-pink' : 'text-muted-foreground hover:text-foreground',
+                                heartAnimating ? 'animate-heart-pop' : '',
+                            ]"
+                        />
+                    </button>
+                    <TooltipProvider :delay-duration="200">
+                        <Tooltip>
+                            <TooltipTrigger as-child @click.stop>
+                                <div
+                                    class="flex size-8 cursor-help items-center justify-center rounded-full border text-[11px] font-bold transition-transform hover:scale-110"
+                                    :class="scoreColor"
+                                >
+                                    {{ qualityPriceScore }}
+                                </div>
                         </TooltipTrigger>
                         <TooltipContent
                             side="top"
@@ -295,9 +295,10 @@ function toggleFavorite(e: Event) {
                                     </div>
                                 </div>
                             </div>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
             </div>
         </div>
     </div>
