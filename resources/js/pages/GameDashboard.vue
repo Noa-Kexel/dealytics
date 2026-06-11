@@ -58,7 +58,7 @@ const {
 
 const { favorites: favoritesData, loadFavorites } = useFavorites();
 const favorites = computed(() => favoritesData.value);
-const topDeals = ref<{ dealID: string; title: string; salePrice: string; normalPrice: string; savings: string; thumb: string; gameID: string }[]>([]);
+const topDeals = ref<{ id: string; title: string; image: string | null; price: number | null; normalPrice: number | null; discount: number }[]>([]);
 const loadingDeals = ref(true);
 
 // Budget editing
@@ -178,12 +178,14 @@ onMounted(async () => {
     // Load spending chart
     refreshChart();
 
-    // Load top deals
+    // Load top deals (Nexarda popularity feed, biggest discounts first)
     try {
-        const response = await fetch(
-            'https://www.cheapshark.com/api/1.0/deals?sortBy=Deal Rating&pageSize=5&onSale=1',
-        );
-        topDeals.value = await response.json();
+        const response = await fetch('/api/games');
+        const data = await response.json();
+        topDeals.value = (data.games ?? [])
+            .filter((g: { price: number | null; discount: number }) => g.price !== null && g.discount > 0)
+            .sort((a: { discount: number }, b: { discount: number }) => b.discount - a.discount)
+            .slice(0, 5);
     } catch {
         // ignore
     } finally {
@@ -481,19 +483,19 @@ onMounted(async () => {
                 <div v-else class="space-y-2">
                     <Link
                         v-for="deal in topDeals"
-                        :key="deal.dealID"
-                        :href="`/game/${deal.gameID}`"
+                        :key="deal.id"
+                        :href="`/game/${deal.id}`"
                         class="flex items-center gap-3 rounded-lg bg-secondary/30 p-2 transition-colors hover:bg-secondary/50"
                     >
-                        <img :src="deal.thumb" :alt="deal.title" class="size-10 rounded object-cover" />
+                        <img :src="deal.image || ''" :alt="deal.title" class="size-10 rounded object-cover" />
                         <div class="min-w-0 flex-1">
                             <div class="truncate text-xs font-medium">{{ deal.title }}</div>
                             <div class="flex items-center gap-2">
-                                <span class="text-xs font-bold text-dealytics-cyan">${{ parseFloat(deal.salePrice).toFixed(2) }}</span>
-                                <span class="text-[10px] text-muted-foreground line-through">${{ parseFloat(deal.normalPrice).toFixed(2) }}</span>
+                                <span class="text-xs font-bold text-dealytics-cyan">{{ (deal.price ?? 0).toFixed(2) }}€</span>
+                                <span v-if="deal.normalPrice" class="text-[10px] text-muted-foreground line-through">{{ deal.normalPrice.toFixed(2) }}€</span>
                                 <span class="flex items-center gap-0.5 text-[10px] font-semibold text-dealytics-pink">
                                     <Flame class="size-2.5" />
-                                    -{{ Math.round(parseFloat(deal.savings)) }}%
+                                    -{{ Math.round(deal.discount) }}%
                                 </span>
                             </div>
                         </div>

@@ -40,16 +40,16 @@ const totalSaved = computed(() => {
     );
 });
 
-const avgScore = computed(() => {
-    const scored = enrichedFavorites.value.filter((f) => f.dealRating !== undefined && f.dealRating > 0);
+const avgDiscount = computed(() => {
+    const discounted = enrichedFavorites.value.filter((f) => f.savings !== undefined && f.savings > 0);
 
-    if (scored.length === 0) {
+    if (discounted.length === 0) {
         return 0;
     }
 
-    const sum = scored.reduce((acc, f) => acc + (f.dealRating || 0), 0);
+    const sum = discounted.reduce((acc, f) => acc + (f.savings || 0), 0);
 
-    return Math.round((sum / scored.length) * 10);
+    return Math.round(sum / discounted.length);
 });
 
 onMounted(async () => {
@@ -64,20 +64,20 @@ onMounted(async () => {
 async function fetchPrices() {
     for (const fav of enrichedFavorites.value) {
         try {
-            const response = await fetch(
-                `https://www.cheapshark.com/api/1.0/games?id=${fav.game_id}`,
-            );
-            const data = await response.json();
+            const response = await fetch(`/api/nexarda/game/${fav.game_id}`);
 
-            if (data?.deals?.length) {
-                const best = data.deals.reduce(
-                    (b: { price: string }, d: { price: string }) =>
-                        parseFloat(d.price) < parseFloat(b.price) ? d : b,
-                );
-                fav.currentPrice = parseFloat(best.price);
-                fav.normalPrice = parseFloat(best.retailPrice);
-                fav.savings = parseFloat(best.savings);
-                fav.dealRating = parseFloat(best.dealRating || '0');
+            if (response.ok) {
+                const data = await response.json();
+
+                if (data?.lowest != null) {
+                    const discount = Math.round(data.maxDiscount || 0);
+                    fav.currentPrice = data.lowest;
+                    fav.normalPrice = discount > 0 && discount < 100
+                        ? data.lowest / (1 - discount / 100)
+                        : (data.highest ?? data.lowest);
+                    fav.savings = discount;
+                    fav.dealRating = 0;
+                }
             }
         } catch {
             // skip
@@ -144,15 +144,15 @@ const sortedFavorites = computed(() => {
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
                     <TrendingDown class="size-4 text-dealytics-cyan" />
                 </div>
-                <div class="text-2xl font-bold text-dealytics-cyan">${{ totalSaved }}</div>
+                <div class="text-2xl font-bold text-dealytics-cyan">{{ totalSaved }}€</div>
                 <div class="text-xs text-muted-foreground">Economies potentielles</div>
             </div>
             <div class="border-gradient rounded-xl p-4">
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-purple/20">
                     <Star class="size-4 text-dealytics-purple" />
                 </div>
-                <div class="text-2xl font-bold text-foreground">{{ avgScore > 0 ? avgScore : '--' }}</div>
-                <div class="text-xs text-muted-foreground">Score deal moyen</div>
+                <div class="text-2xl font-bold text-foreground">{{ avgDiscount > 0 ? `${avgDiscount}%` : '--' }}</div>
+                <div class="text-xs text-muted-foreground">Réduction moyenne</div>
             </div>
         </div>
 
@@ -193,14 +193,14 @@ const sortedFavorites = computed(() => {
                         loading="lazy"
                     />
 
-                    <!-- Deal badge -->
-                    <div v-if="fav.dealRating !== undefined && fav.dealRating >= 8" class="absolute top-2 left-2">
+                    <!-- Deal badge (based on discount) -->
+                    <div v-if="fav.savings && fav.savings >= 50" class="absolute top-2 left-2">
                         <span class="inline-flex items-center gap-1 rounded-md border border-dealytics-pink/30 bg-dealytics-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-dealytics-pink">
                             <Flame class="size-2.5" />
                             HOT
                         </span>
                     </div>
-                    <div v-else-if="fav.dealRating !== undefined && fav.dealRating >= 5" class="absolute top-2 left-2">
+                    <div v-else-if="fav.savings && fav.savings >= 25" class="absolute top-2 left-2">
                         <span class="inline-flex items-center gap-1 rounded-md border border-dealytics-cyan/30 bg-dealytics-cyan/20 px-2 py-0.5 text-[10px] font-bold uppercase text-dealytics-cyan">
                             <Star class="size-2.5" />
                             BON
@@ -231,13 +231,13 @@ const sortedFavorites = computed(() => {
                         <div v-if="fav.loading" class="h-5 w-20 animate-pulse rounded bg-secondary" />
                         <div v-else-if="fav.currentPrice !== undefined" class="flex items-baseline gap-2">
                             <span class="text-lg font-bold text-dealytics-cyan">
-                                {{ fav.currentPrice === 0 ? 'Gratuit' : `$${fav.currentPrice.toFixed(2)}` }}
+                                {{ fav.currentPrice === 0 ? 'Gratuit' : `${fav.currentPrice.toFixed(2)}€` }}
                             </span>
                             <span
                                 v-if="fav.normalPrice && fav.savings && fav.savings > 0"
                                 class="text-xs text-muted-foreground line-through"
                             >
-                                ${{ fav.normalPrice.toFixed(2) }}
+                                {{ fav.normalPrice.toFixed(2) }}€
                             </span>
                         </div>
                         <div v-else class="text-xs text-muted-foreground">Prix indisponible</div>

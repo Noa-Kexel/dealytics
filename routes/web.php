@@ -39,7 +39,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::get('game/{id}', [GameController::class, 'show'])->name('game.show');
+Route::get('api/games', [GameController::class, 'games'])->name('game.search');
+Route::get('api/games/{id}/history', [GameController::class, 'history'])->whereNumber('id')->name('game.history');
 Route::get('api/rawg/{title}', [GameController::class, 'rawg'])->name('game.rawg');
-Route::get('api/itad/{title}', [GameController::class, 'itad'])->name('game.itad');
+Route::get('api/nexarda/game/{id}', [GameController::class, 'nexardaById'])->whereNumber('id')->name('game.nexarda.id');
+Route::get('api/nexarda/{title}', [GameController::class, 'nexarda'])->name('game.nexarda');
 
 require __DIR__.'/settings.php';

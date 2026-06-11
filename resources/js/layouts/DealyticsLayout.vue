@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Heart, Home, LayoutGrid, Menu, Zap } from 'lucide-vue-next';
+import {
+    Heart,
+    Home,
+    LayoutGrid,
+    Menu,
+    Twitter,
+    Instagram,
+    Link2,
+} from 'lucide-vue-next';
 import type { LucideIcon } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
@@ -38,7 +46,9 @@ function isActive(path: string): boolean {
         return currentPath.value === '/';
     }
 
-    return currentPath.value === path || currentPath.value.startsWith(path + '/');
+    return (
+        currentPath.value === path || currentPath.value.startsWith(path + '/')
+    );
 }
 
 interface NavItem {
@@ -52,13 +62,20 @@ const navItems: NavItem[] = [
     { title: 'Favoris', href: '/favorites', icon: Heart },
     { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
 ];
+
+const productLinks = ['Caractéristiques', 'Tarification', 'API'];
+const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];
 </script>
 
 <template>
     <div class="flex min-h-screen w-full flex-col bg-background">
         <!-- Header -->
-        <header class="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6">
+        <header
+            class="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl"
+        >
+            <div
+                class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6"
+            >
                 <!-- Logo -->
                 <Link href="/" class="flex items-center">
                     <AppLogo />
@@ -88,16 +105,6 @@ const navItems: NavItem[] = [
 
                 <!-- Right side -->
                 <div class="flex items-center gap-3">
-                    <!-- PRO Button -->
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        class="hidden rounded-full border-dealytics-purple/50 text-dealytics-purple hover:bg-dealytics-purple/10 hover:text-dealytics-purple sm:flex"
-                    >
-                        <Zap class="mr-1 size-3.5 fill-dealytics-purple" />
-                        PRO
-                    </Button>
-
                     <!-- User menu -->
                     <DropdownMenu v-if="auth?.user">
                         <DropdownMenuTrigger :as-child="true">
@@ -106,7 +113,9 @@ const navItems: NavItem[] = [
                                 size="icon"
                                 class="relative size-9 rounded-full"
                             >
-                                <Avatar class="size-8 overflow-hidden rounded-full">
+                                <Avatar
+                                    class="size-8 overflow-hidden rounded-full"
+                                >
                                     <AvatarImage
                                         v-if="auth.user.avatar"
                                         :src="auth.user.avatar"
@@ -137,16 +146,30 @@ const navItems: NavItem[] = [
                     <!-- Mobile menu -->
                     <Sheet>
                         <SheetTrigger :as-child="true">
-                            <Button variant="ghost" size="icon" class="size-9 md:hidden">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                class="size-9 md:hidden"
+                            >
                                 <Menu class="size-5" />
                             </Button>
                         </SheetTrigger>
-                        <SheetContent side="right" class="w-[280px] border-border/50 bg-background p-0">
-                            <SheetTitle class="sr-only">Menu de navigation</SheetTitle>
+                        <SheetContent
+                            side="right"
+                            class="w-70 border-border/50 bg-background p-0"
+                        >
+                            <SheetTitle class="sr-only"
+                                >Menu de navigation</SheetTitle
+                            >
                             <SheetHeader class="border-b border-border/50 p-4">
                                 <div class="flex items-center text-base">
-                                    <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
-                                    <span class="-ml-0.5 font-heading text-base font-bold text-gradient-purple">EALYTICS</span>
+                                    <AppLogoIcon
+                                        class="h-[1cap] w-auto shrink-0"
+                                    />
+                                    <span
+                                        class="text-gradient-purple -ml-0.5 font-heading text-base font-bold"
+                                        >EALYTICS</span
+                                    >
                                 </div>
                             </SheetHeader>
                             <nav class="flex flex-col gap-1 p-3">
@@ -171,7 +194,9 @@ const navItems: NavItem[] = [
             </div>
 
             <!-- Gradient line under header -->
-            <div class="h-px bg-gradient-to-r from-transparent via-dealytics-purple/50 to-transparent" />
+            <div
+                class="h-px bg-linear-to-r from-transparent via-dealytics-purple/50 to-transparent"
+            />
         </header>
 
         <!-- Main content -->
@@ -180,31 +205,110 @@ const navItems: NavItem[] = [
         </main>
 
         <!-- Footer -->
-        <footer class="border-t border-border/50 bg-background/80 backdrop-blur-xl">
-            <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
-                <div class="flex flex-col items-center gap-6 md:flex-row md:justify-between">
-                    <div class="flex items-center text-sm">
-                        <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
-                        <span class="-ml-0.5 font-heading text-sm font-bold text-gradient-purple">EALYTICS</span>
+        <footer
+            class="border-t border-border/50 bg-background/80 backdrop-blur-xl"
+        >
+            <div class="mx-auto max-w-7xl px-4 py-12 lg:px-6">
+                <div class="grid gap-8 md:grid-cols-4">
+                    <!-- Brand -->
+                    <div class="md:col-span-2">
+                        <div class="flex items-center text-base">
+                            <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
+                            <span
+                                class="text-gradient-purple -ml-0.5 font-heading text-base font-bold"
+                                >EALYTICS</span
+                            >
+                        </div>
+                        <p
+                            class="mt-3 max-w-xs text-xs leading-relaxed text-muted-foreground"
+                        >
+                            La meilleure plateforme pour suivre les prix des
+                            jeux et trouver les offres exceptionnelles.
+                        </p>
+                        <div class="mt-4 flex items-center gap-3">
+                            <a
+                                href="#"
+                                aria-label="X"
+                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
+                            >
+                                <Twitter class="size-4" />
+                            </a>
+                            <a
+                                href="#"
+                                aria-label="Instagram"
+                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
+                            >
+                                <Instagram class="size-4" />
+                            </a>
+                            <a
+                                href="#"
+                                aria-label="Lien"
+                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
+                            >
+                                <Link2 class="size-4" />
+                            </a>
+                        </div>
                     </div>
 
-                    <nav class="flex items-center gap-6">
-                        <Link
-                            v-for="item in navItems"
-                            :key="item.title"
-                            :href="item.href"
-                            class="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            {{ item.title }}
-                        </Link>
-                    </nav>
+                    <!-- Produits -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-dealytics-purple">
+                            Produits
+                        </h3>
+                        <ul class="mt-3 space-y-2">
+                            <li v-for="link in productLinks" :key="link">
+                                <a
+                                    href="#"
+                                    class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                    {{ link }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
 
-                    <p class="text-[11px] text-muted-foreground/60">
-                        &copy; {{ new Date().getFullYear() }} Dealytics &mdash; TFE Project
+                    <!-- Support -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-dealytics-purple">
+                            Support
+                        </h3>
+                        <ul class="mt-3 space-y-2">
+                            <li v-for="link in supportLinks" :key="link">
+                                <a
+                                    href="#"
+                                    class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                    {{ link }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Bottom bar -->
+                <div
+                    class="mt-10 flex flex-col items-center gap-2 border-t border-border/50 pt-6 text-[11px] text-muted-foreground/60 sm:flex-row sm:justify-between"
+                >
+                    <p>
+                        &copy; {{ new Date().getFullYear() }} Dealytics &mdash;
+                        Tous droits réservés
+                    </p>
+                    <p>
+                        Conçu par
+                        <a
+                            href="https://www.linkedin.com/in/noa-kexel-b5942b2a0/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="font-medium text-dealytics-purple transition-colors hover:text-dealytics-pink"
+                        >
+                            Noa
+                        </a>
                     </p>
                 </div>
             </div>
-            <div class="h-px bg-gradient-to-r from-transparent via-dealytics-purple/30 to-transparent" />
+            <div
+                class="h-px bg-linear-to-r from-transparent via-dealytics-purple/30 to-transparent"
+            />
         </footer>
     </div>
 </template>

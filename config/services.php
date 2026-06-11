@@ -40,9 +40,8 @@ return [
         'base_url' => 'https://api.rawg.io/api',
     ],
 
-    'itad' => [
-        'key' => env('ITAD_API_KEY'),
-        'base_url' => 'https://api.isthereanydeal.com',
+    'nexarda' => [
+        'base_url' => 'https://www.nexarda.com/api/v3',
     ],
 
 ];

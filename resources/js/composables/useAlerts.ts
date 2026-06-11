@@ -194,18 +194,19 @@ export function useAlerts() {
             const alertGameId = alert.game_id || alert.gameID;
 
             try {
-                const response = await fetch(
-                    `https://www.cheapshark.com/api/1.0/games?id=${alertGameId}`,
-                );
-                const data = await response.json();
+                const response = await fetch(`/api/nexarda/game/${alertGameId}`);
 
-                if (!data?.deals?.length) {
+                if (!response.ok) {
                     continue;
                 }
 
-                const bestPrice = Math.min(
-                    ...data.deals.map((d: { price: string }) => parseFloat(d.price)),
-                );
+                const data = await response.json();
+
+                if (data?.lowest == null) {
+                    continue;
+                }
+
+                const bestPrice = data.lowest;
 
                 const idx = alerts.value.findIndex(
                     (a) => (a.game_id || a.gameID) === alertGameId,
@@ -245,7 +246,7 @@ export function useAlerts() {
                     // Browser notification
                     if ('Notification' in window && Notification.permission === 'granted') {
                         new Notification('Dealytics - Alerte prix atteint !', {
-                            body: `${alert.title} est maintenant à $${bestPrice.toFixed(2)} (objectif: $${targetPrice.toFixed(2)})`,
+                            body: `${alert.title} est maintenant à ${bestPrice.toFixed(2)}€ (objectif: ${targetPrice.toFixed(2)}€)`,
                             icon: '/favicon.svg',
                         });
                     }
