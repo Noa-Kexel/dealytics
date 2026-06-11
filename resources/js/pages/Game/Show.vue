@@ -210,12 +210,12 @@ async function toggleFavorite() {
 }
 
 // Alert logic
-function setAlertPrice() {
+async function setAlertPrice() {
     if (!alertPrice.value) {
         return;
     }
 
-    addAlert(gameId, title.value, parseFloat(alertPrice.value));
+    await addAlert(gameId, title.value, parseFloat(alertPrice.value));
     alertSet.value = true;
 }
 

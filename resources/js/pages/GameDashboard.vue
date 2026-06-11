@@ -407,7 +407,7 @@ onMounted(async () => {
         <!-- Alerts + Top Deals -->
         <div class="grid gap-4 lg:grid-cols-2">
             <!-- Active Alerts -->
-            <div class="border-gradient rounded-xl p-6">
+            <div id="price-alerts" class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <Bell class="size-4 text-dealytics-cyan" />
                     <h2 class="font-heading text-lg font-semibold">Alertes de prix</h2>
@@ -424,7 +424,7 @@ onMounted(async () => {
                         <div>
                             <div class="text-xs font-medium">{{ alert.title }}</div>
                             <div class="text-[10px] text-dealytics-pink">
-                                Objectif ${{ alert.targetPrice.toFixed(2) }} atteint !
+                                Objectif {{ (alert.targetPrice ?? alert.target_price ?? 0).toFixed(2) }}€ atteint !
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -449,8 +449,10 @@ onMounted(async () => {
                         <div>
                             <div class="text-xs font-medium">{{ alert.title }}</div>
                             <div class="text-[10px] text-muted-foreground">
-                                Objectif : ${{ alert.targetPrice.toFixed(2) }}
-                                <span v-if="alert.currentPrice"> · Actuel : ${{ alert.currentPrice.toFixed(2) }}</span>
+                                Objectif : {{ (alert.targetPrice ?? alert.target_price ?? 0).toFixed(2) }}€
+                                <span v-if="alert.currentPrice ?? alert.current_price">
+                                    · Actuel : {{ (alert.currentPrice ?? alert.current_price ?? 0).toFixed(2) }}€
+                                </span>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">

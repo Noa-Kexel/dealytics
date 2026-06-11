@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 // Capture daily price snapshots for tracked games so the detail page can
 // show a real price history over time.
 Schedule::command('prices:snapshot')->dailyAt('06:00');
+Schedule::command('alerts:check')->hourly();

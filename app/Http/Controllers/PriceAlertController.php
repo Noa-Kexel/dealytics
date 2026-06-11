@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PriceAlertChecker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -65,5 +66,20 @@ class PriceAlertController extends Controller
             ->delete();
 
         return response()->json(['message' => 'Alerte supprimée']);
+    }
+
+    public function check(Request $request, PriceAlertChecker $checker): JsonResponse
+    {
+        $triggered = $checker->checkForUser($request->user());
+
+        $alerts = $request->user()
+            ->priceAlerts()
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'alerts' => $alerts,
+            'triggered' => $triggered,
+        ]);
     }
 }

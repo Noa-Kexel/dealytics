@@ -10,9 +10,11 @@ import {
     Link2,
 } from 'lucide-vue-next';
 import type { LucideIcon } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
+import AlertToast from '@/components/AlertToast.vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import NotificationBell from '@/components/NotificationBell.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,7 +30,9 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import UserMenuContent from '@/components/UserMenuContent.vue';
+import { useAlerts } from '@/composables/useAlerts';
 import { getInitials } from '@/composables/useInitials';
+import { useNotifications } from '@/composables/useNotifications';
 
 const page = usePage();
 const auth = computed(() => page.props.auth);
@@ -65,6 +69,19 @@ const navItems: NavItem[] = [
 
 const productLinks = ['Caractéristiques', 'Tarification', 'API'];
 const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];
+
+const { loadAlerts, checkAlerts, startAlertPolling } = useAlerts();
+const { loadNotifications } = useNotifications();
+
+onMounted(async () => {
+    await loadAlerts();
+    await checkAlerts();
+    startAlertPolling();
+
+    if (auth.value?.user) {
+        await loadNotifications();
+    }
+});
 </script>
 
 <template>
@@ -105,6 +122,8 @@ const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];
 
                 <!-- Right side -->
                 <div class="flex items-center gap-3">
+                    <NotificationBell v-if="auth?.user" />
+
                     <!-- User menu -->
                     <DropdownMenu v-if="auth?.user">
                         <DropdownMenuTrigger :as-child="true">
@@ -310,5 +329,7 @@ const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];
                 class="h-px bg-linear-to-r from-transparent via-dealytics-purple/30 to-transparent"
             />
         </footer>
+
+        <AlertToast />
     </div>
 </template>

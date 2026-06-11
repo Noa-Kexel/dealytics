@@ -24,4 +24,13 @@ class DashboardTest extends TestCase
         $response = $this->get(route('dashboard'));
         $response->assertOk();
     }
+
+    public function test_authenticated_users_can_visit_the_alerts_page()
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->get(route('alerts'));
+        $response->assertOk();
+    }
 }

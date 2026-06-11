@@ -3,6 +3,7 @@
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceAlertController;
 use App\Http\Controllers\PurchaseController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,7 @@ Route::redirect('/search', '/');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('favorites', 'Favorites')->name('favorites');
     Route::inertia('dashboard', 'GameDashboard')->name('dashboard');
+    Route::inertia('alerts', 'Alerts')->name('alerts');
 
     // API — Favoris
     Route::get('api/favorites', [FavoriteController::class, 'index']);
@@ -24,8 +26,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // API — Alertes prix
     Route::get('api/alerts', [PriceAlertController::class, 'index']);
     Route::post('api/alerts', [PriceAlertController::class, 'store']);
+    Route::post('api/alerts/check', [PriceAlertController::class, 'check']);
     Route::patch('api/alerts/{gameId}', [PriceAlertController::class, 'update']);
     Route::delete('api/alerts/{gameId}', [PriceAlertController::class, 'destroy']);
+
+    // API — Notifications
+    Route::get('api/notifications', [NotificationController::class, 'index']);
+    Route::get('api/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('api/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('api/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
     // API — Achats
     Route::get('api/purchases', [PurchaseController::class, 'index']);

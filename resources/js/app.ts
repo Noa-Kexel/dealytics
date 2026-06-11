@@ -1,5 +1,4 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { useAlerts } from '@/composables/useAlerts';
 import { initializeTheme } from '@/composables/useAppearance';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
@@ -20,6 +19,7 @@ createInertiaApp({
                 return [AppLayout, SettingsLayout];
             case name === 'Home':
             case name === 'Favorites':
+            case name === 'Alerts':
             case name === 'GameDashboard':
             case name.startsWith('Game/'):
                 return DealyticsLayout;
@@ -34,7 +34,3 @@ createInertiaApp({
 
 // This will set light / dark mode on page load...
 initializeTheme();
-
-// Check price alerts on app load
-const { checkAlerts } = useAlerts();
-checkAlerts();

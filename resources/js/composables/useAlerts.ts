@@ -19,7 +19,13 @@ export interface PriceAlert {
     notifiedAt?: string; // localStorage compat
 }
 
-// Normalize alert to a consistent shape
+export interface TriggeredAlert {
+    game_id: string;
+    title: string;
+    target_price: number;
+    current_price: number;
+}
+
 function normalize(a: PriceAlert): PriceAlert {
     return {
         ...a,
@@ -39,9 +45,11 @@ function normalize(a: PriceAlert): PriceAlert {
 }
 
 const STORAGE_KEY = 'dealytics_alerts';
+const POLL_INTERVAL_MS = 15 * 60 * 1000;
 
 const alerts = ref<PriceAlert[]>([]);
 const loaded = ref(false);
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 function isAuthenticated(): boolean {
     try {
@@ -52,8 +60,6 @@ function isAuthenticated(): boolean {
         return false;
     }
 }
-
-// ── localStorage fallback ───────────────────────────────────
 
 function loadFromStorage(): PriceAlert[] {
     try {
@@ -79,7 +85,48 @@ function saveToStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-// ── Public API ──────────────────────────────────────────────
+export async function requestNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {
+    if (!('Notification' in window)) {
+        return 'unsupported';
+    }
+
+    if (Notification.permission === 'default') {
+        return Notification.requestPermission();
+    }
+
+    return Notification.permission;
+}
+
+function dispatchTriggered(triggered: TriggeredAlert) {
+    window.dispatchEvent(
+        new CustomEvent('dealytics:alert-triggered', {
+            detail: {
+                gameId: triggered.game_id,
+                title: triggered.title,
+                currentPrice: triggered.current_price,
+                targetPrice: triggered.target_price,
+            },
+        }),
+    );
+}
+
+function showBrowserNotification(triggered: TriggeredAlert) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+    }
+
+    new Notification('Dealytics — Alerte prix atteint !', {
+        body: `${triggered.title} est maintenant à ${triggered.current_price.toFixed(2)}€ (objectif: ${triggered.target_price.toFixed(2)}€)`,
+        icon: '/favicon.svg',
+    });
+}
+
+function handleTriggeredAlerts(triggered: TriggeredAlert[]) {
+    for (const item of triggered) {
+        dispatchTriggered(item);
+        showBrowserNotification(item);
+    }
+}
 
 export function useAlerts() {
     async function loadAlerts(): Promise<void> {
@@ -97,7 +144,6 @@ export function useAlerts() {
         loaded.value = true;
     }
 
-    // Initialize if not yet loaded
     if (!loaded.value) {
         if (isAuthenticated()) {
             loadAlerts();
@@ -108,6 +154,8 @@ export function useAlerts() {
     }
 
     async function addAlert(gameID: string, title: string, targetPrice: number) {
+        await requestNotificationPermission();
+
         const existing = alerts.value.findIndex(
             (a) => (a.game_id || a.gameID) === gameID,
         );
@@ -142,6 +190,8 @@ export function useAlerts() {
         } else {
             saveToStorage();
         }
+
+        startAlertPolling();
     }
 
     async function removeAlert(gameID: string) {
@@ -157,6 +207,10 @@ export function useAlerts() {
             }
         } else {
             saveToStorage();
+        }
+
+        if (getActiveAlerts().length === 0) {
+            stopAlertPolling();
         }
     }
 
@@ -178,19 +232,48 @@ export function useAlerts() {
         );
     }
 
-    async function checkAlerts() {
+    async function checkAlerts(): Promise<TriggeredAlert[]> {
         const active = getActiveAlerts();
 
         if (active.length === 0) {
-            return;
+            return [];
         }
 
-        // Request notification permission
-        if ('Notification' in window && Notification.permission === 'default') {
-            await Notification.requestPermission();
+        if (isAuthenticated()) {
+            return checkAlertsServer();
         }
+
+        return checkAlertsClient(active);
+    }
+
+    async function checkAlertsServer(): Promise<TriggeredAlert[]> {
+        try {
+            const data = await api<{
+                alerts: PriceAlert[];
+                triggered: TriggeredAlert[];
+            }>('/api/alerts/check', { method: 'POST' });
+
+            alerts.value = data.alerts.map(normalize);
+
+            if (data.triggered.length > 0) {
+                handleTriggeredAlerts(data.triggered);
+                window.dispatchEvent(new CustomEvent('dealytics:notifications-changed'));
+            }
+
+            return data.triggered;
+        } catch {
+            return [];
+        }
+    }
+
+    async function checkAlertsClient(active: PriceAlert[]): Promise<TriggeredAlert[]> {
+        const triggered: TriggeredAlert[] = [];
 
         for (const alert of active) {
+            if (alert.is_reached || alert.notified_at) {
+                continue;
+            }
+
             const alertGameId = alert.game_id || alert.gameID;
 
             try {
@@ -207,7 +290,6 @@ export function useAlerts() {
                 }
 
                 const bestPrice = data.lowest;
-
                 const idx = alerts.value.findIndex(
                     (a) => (a.game_id || a.gameID) === alertGameId,
                 );
@@ -220,44 +302,57 @@ export function useAlerts() {
                 const targetPrice = alert.target_price ?? alert.targetPrice ?? 0;
 
                 if (bestPrice <= targetPrice) {
+                    const now = new Date().toISOString();
+
                     if (idx >= 0) {
                         alerts.value[idx].is_reached = true;
                         alerts.value[idx].reached = true;
-                        alerts.value[idx].notified_at = new Date().toISOString();
-                        alerts.value[idx].notifiedAt = new Date().toISOString();
+                        alerts.value[idx].notified_at = now;
+                        alerts.value[idx].notifiedAt = now;
                     }
 
-                    // Persist reached status to DB
-                    if (isAuthenticated() && alertGameId) {
-                        try {
-                            await api(`/api/alerts/${alertGameId}`, {
-                                method: 'PATCH',
-                                body: {
-                                    current_price: bestPrice,
-                                    is_reached: true,
-                                    notified_at: new Date().toISOString(),
-                                },
-                            });
-                        } catch {
-                            // already updated locally
-                        }
-                    }
+                    const item: TriggeredAlert = {
+                        game_id: alertGameId!,
+                        title: alert.title,
+                        target_price: targetPrice,
+                        current_price: bestPrice,
+                    };
 
-                    // Browser notification
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification('Dealytics - Alerte prix atteint !', {
-                            body: `${alert.title} est maintenant à ${bestPrice.toFixed(2)}€ (objectif: ${targetPrice.toFixed(2)}€)`,
-                            icon: '/favicon.svg',
-                        });
-                    }
+                    triggered.push(item);
                 }
             } catch {
                 // Skip
             }
         }
 
-        if (!isAuthenticated()) {
+        if (triggered.length > 0) {
             saveToStorage();
+            handleTriggeredAlerts(triggered);
+        }
+
+        return triggered;
+    }
+
+    function startAlertPolling() {
+        if (pollTimer || getActiveAlerts().length === 0) {
+            return;
+        }
+
+        pollTimer = setInterval(() => {
+            if (getActiveAlerts().length === 0) {
+                stopAlertPolling();
+
+                return;
+            }
+
+            checkAlerts();
+        }, POLL_INTERVAL_MS);
+    }
+
+    function stopAlertPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
         }
     }
 
@@ -270,5 +365,8 @@ export function useAlerts() {
         getActiveAlerts,
         getReachedAlerts,
         checkAlerts,
+        startAlertPolling,
+        stopAlertPolling,
+        requestNotificationPermission,
     };
 }

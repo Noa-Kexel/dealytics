@@ -228,61 +228,74 @@ function onSearchInput() {
                 class="bg-glow-cyan pointer-events-none absolute -bottom-24 -left-24 size-96 opacity-30"
             />
 
-            <div class="relative">
-                <!-- Title -->
-                <h1
-                    class="font-heading text-4xl leading-tight font-extrabold md:text-5xl lg:text-6xl"
-                >
-                    Trouvez les Meilleures
-                    <br />
-                    <span class="text-gradient-hero">Offres Gaming</span>
-                </h1>
+            <div
+                class="pointer-events-none absolute inset-y-0 right-0 hidden w-[52%] lg:block xl:w-[50%]"
+            >
+                <img
+                    src="/images/hero.png"
+                    alt="Gamer avec casque et setup gaming"
+                    class="hero-image-fade h-full w-full object-contain object-right object-bottom"
+                    loading="eager"
+                />
+            </div>
 
-                <p
-                    class="mt-4 max-w-xl text-base text-muted-foreground md:text-lg"
-                >
-                    Comparez les prix sur toutes les plateformes. Soyez alerté
-                    quand vos jeux préférés atteignent leur prix le plus bas.
-                </p>
+            <div class="relative z-10 max-w-2xl lg:max-w-[58%]">
+                    <h1
+                        class="font-heading text-4xl leading-tight font-extrabold md:text-5xl lg:text-6xl"
+                    >
+                        Trouvez les Meilleures
+                        <br />
+                        <span class="text-gradient-hero">Offres Gaming</span>
+                    </h1>
 
-                <!-- Stats -->
-                <div class="mt-8 flex flex-wrap gap-6 md:gap-10">
-                    <div class="flex items-center gap-2">
-                        <Zap class="size-4 text-dealytics-purple" />
-                        <div>
-                            <span
-                                class="text-lg font-bold text-dealytics-purple"
-                                >{{ gamesTracked }}+</span
-                            >
-                            <span class="ml-1 text-xs text-muted-foreground"
-                                >Jeux suivis</span
-                            >
+                    <p
+                        class="mt-4 max-w-xl text-base text-muted-foreground md:text-lg"
+                    >
+                        Comparez les prix sur toutes les plateformes. Soyez
+                        alerté quand vos jeux préférés atteignent leur prix le
+                        plus bas.
+                    </p>
+
+                    <div class="mt-8 flex flex-wrap gap-6 md:gap-10">
+                        <div class="flex items-center gap-2">
+                            <Zap class="size-4 text-dealytics-purple" />
+                            <div>
+                                <span
+                                    class="text-lg font-bold text-dealytics-purple"
+                                    >{{ gamesTracked }}+</span
+                                >
+                                <span class="ml-1 text-xs text-muted-foreground"
+                                    >Jeux suivis</span
+                                >
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <Flame class="size-4 text-dealytics-pink" />
+                            <div>
+                                <span
+                                    class="text-lg font-bold text-dealytics-pink"
+                                    >{{ hotDeals }}</span
+                                >
+                                <span class="ml-1 text-xs text-muted-foreground"
+                                    >Promos chaudes</span
+                                >
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <TrendingDown
+                                class="size-4 text-dealytics-cyan"
+                            />
+                            <div>
+                                <span
+                                    class="text-lg font-bold text-dealytics-cyan"
+                                    >{{ totalSavings }}€</span
+                                >
+                                <span class="ml-1 text-xs text-muted-foreground"
+                                    >Economies totales</span
+                                >
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <Flame class="size-4 text-dealytics-pink" />
-                        <div>
-                            <span
-                                class="text-lg font-bold text-dealytics-pink"
-                                >{{ hotDeals }}</span
-                            >
-                            <span class="ml-1 text-xs text-muted-foreground"
-                                >Promos chaudes</span
-                            >
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <TrendingDown class="size-4 text-dealytics-cyan" />
-                        <div>
-                            <span class="text-lg font-bold text-dealytics-cyan"
-                                >{{ totalSavings }}€</span
-                            >
-                            <span class="ml-1 text-xs text-muted-foreground"
-                                >Economies totales</span
-                            >
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
