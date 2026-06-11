@@ -11,6 +11,7 @@ export interface ToastAlert {
 }
 
 const toasts = ref<ToastAlert[]>([]);
+const mounted = ref(false);
 
 function show(toast: ToastAlert) {
     toasts.value.push(toast);
@@ -23,6 +24,8 @@ function dismiss(gameId: string) {
 }
 
 onMounted(() => {
+    mounted.value = true;
+
     window.addEventListener('dealytics:alert-triggered', ((event: CustomEvent<ToastAlert>) => {
         show(event.detail);
     }) as EventListener);
@@ -32,7 +35,7 @@ defineExpose({ show });
 </script>
 
 <template>
-    <Teleport to="body">
+    <Teleport v-if="mounted" to="body">
         <div class="pointer-events-none fixed right-4 bottom-4 z-[100] flex flex-col gap-2">
             <div
                 v-for="toast in toasts"

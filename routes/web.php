@@ -15,7 +15,6 @@ Route::redirect('/search', '/');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('favorites', 'Favorites')->name('favorites');
     Route::inertia('dashboard', 'GameDashboard')->name('dashboard');
-    Route::inertia('alerts', 'Alerts')->name('alerts');
 
     // API — Favoris
     Route::get('api/favorites', [FavoriteController::class, 'index']);

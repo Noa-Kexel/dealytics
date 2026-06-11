@@ -18,7 +18,7 @@ import {
     BarChart3,
     Image as ImageIcon,
 } from 'lucide-vue-next';
-import { ref, onMounted, computed, nextTick } from 'vue';
+import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import DealBadge from '@/components/DealBadge.vue';
 import StorePriceChart from '@/components/StorePriceChart.vue';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,15 @@ import {
 } from '@/components/ui/tooltip';
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
+import {
+    getQualityPriceScore,
+    getQualityValue,
+    getSavingsScore,
+    getScoreBorderColor,
+    getScoreColor,
+    getScoreLabel,
+    hasQualityData as checkHasQualityData,
+} from '@/lib/qualityPriceScore';
 
 interface NexardaOffer {
     url: string | null;
@@ -40,6 +49,7 @@ interface NexardaOffer {
     official: boolean;
     edition: string | null;
     editionFull: string | null;
+    platform: string | null;
     region: string | null;
     price: number;
     discount: number;
@@ -60,6 +70,7 @@ interface NexardaData {
 }
 
 interface RawgData {
+    source?: 'rawg' | 'steam';
     id: number;
     name: string;
     description: string;
@@ -123,74 +134,101 @@ const normalPrice = computed(() => {
     return nexarda.value?.highest ?? currentPrice.value;
 });
 
-const bestOfficialPrice = computed(() => nexarda.value?.offers.find((o) => o.official) ?? null);
-const bestKeyshopPrice = computed(() => nexarda.value?.offers.find((o) => !o.official) ?? null);
+const PLATFORM_LABELS: Record<string, string> = {
+    WINDOWS: 'PC',
+    MAC: 'Mac',
+    LINUX: 'Linux',
+    'XBOX-XS': 'Xbox Series',
+    'XBOX-ONE': 'Xbox One',
+    XBOX: 'Xbox',
+    PS5: 'PlayStation 5',
+    PS4: 'PlayStation 4',
+    SWITCH: 'Nintendo Switch',
+    'SWITCH-2': 'Nintendo Switch 2',
+};
 
-// Quality/price score (/100) — combines the game's quality (RAWG metacritic
-// or rating, with a neutral fallback when RAWG is unavailable) and the current
-// discount. No fabricated data: both inputs are real when present.
-const hasQualityData = computed(() => !!(rawg.value?.metacritic || rawg.value?.rating));
-const qualityValue = computed(() => {
-    if (rawg.value?.metacritic) {
-        return rawg.value.metacritic;
+function extractOfferPlatform(offer: NexardaOffer): string | null {
+    if (offer.platform) {
+        return offer.platform;
     }
 
-    if (rawg.value?.rating) {
-        return Math.round(rawg.value.rating * 20);
+    const match = offer.editionFull?.match(/FOR:([A-Z0-9-]+)/i);
+
+    return match ? match[1].toUpperCase() : null;
+}
+
+function platformLabel(slug: string): string {
+    return PLATFORM_LABELS[slug] ?? slug.replace(/-/g, ' ');
+}
+
+function cheapestOffer(offers: NexardaOffer[], official?: boolean): NexardaOffer | null {
+    const pool = official === undefined
+        ? offers
+        : offers.filter((o) => o.official === official);
+
+    if (!pool.length) {
+        return null;
     }
 
-    return 60; // neutral fallback
+    return pool.reduce((best, offer) => (offer.price < best.price ? offer : best));
+}
+
+const selectedOfferPlatform = ref('all');
+
+const offerPlatforms = computed(() => {
+    const counts = new Map<string, number>();
+
+    for (const offer of nexarda.value?.offers ?? []) {
+        const platform = extractOfferPlatform(offer);
+
+        if (!platform) {
+            continue;
+        }
+
+        counts.set(platform, (counts.get(platform) ?? 0) + 1);
+    }
+
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
 });
-const savingsScore = computed(() => Math.min(Math.round(savingsPercent.value * 1.5), 100));
-const qualityPriceScore = computed(() => Math.round(qualityValue.value * 0.6 + savingsScore.value * 0.4));
 
-const scoreColor = computed(() => {
-    if (qualityPriceScore.value >= 75) {
-        return 'text-dealytics-cyan';
+const filteredOffers = computed(() => {
+    const offers = nexarda.value?.offers ?? [];
+
+    if (selectedOfferPlatform.value === 'all') {
+        return offers;
     }
 
-    if (qualityPriceScore.value >= 55) {
-        return 'text-dealytics-purple';
-    }
-
-    if (qualityPriceScore.value >= 35) {
-        return 'text-yellow-400';
-    }
-
-    return 'text-muted-foreground';
+    return offers.filter((offer) => extractOfferPlatform(offer) === selectedOfferPlatform.value);
 });
 
-const scoreBorderColor = computed(() => {
-    if (qualityPriceScore.value >= 75) {
-        return 'border-dealytics-cyan/50 bg-dealytics-cyan/10';
-    }
+const filteredBestOfficialPrice = computed(() => cheapestOffer(filteredOffers.value, true));
+const filteredBestKeyshopPrice = computed(() => cheapestOffer(filteredOffers.value, false));
 
-    if (qualityPriceScore.value >= 55) {
-        return 'border-dealytics-purple/50 bg-dealytics-purple/10';
-    }
+watch(
+    () => nexarda.value?.offers,
+    () => {
+        selectedOfferPlatform.value = 'all';
+    },
+);
 
-    if (qualityPriceScore.value >= 35) {
-        return 'border-yellow-400/50 bg-yellow-400/10';
-    }
-
-    return 'border-border bg-secondary/50';
-});
-
-const scoreLabel = computed(() => {
-    if (qualityPriceScore.value >= 75) {
-        return 'Excellent';
-    }
-
-    if (qualityPriceScore.value >= 55) {
-        return 'Bon deal';
-    }
-
-    if (qualityPriceScore.value >= 35) {
-        return 'Moyen';
-    }
-
-    return 'Faible';
-});
+// Quality/price score (/100) — combines RAWG quality and current discount.
+const hasQualityData = computed(() =>
+    checkHasQualityData(rawg.value?.metacritic, rawg.value?.rating),
+);
+const qualityValue = computed(() =>
+    getQualityValue(rawg.value?.metacritic, rawg.value?.rating),
+);
+const savingsScore = computed(() => getSavingsScore(savingsPercent.value));
+const qualityPriceScore = computed(() =>
+    getQualityPriceScore(
+        savingsPercent.value,
+        rawg.value?.metacritic,
+        rawg.value?.rating,
+    ),
+);
+const scoreColor = computed(() => getScoreColor(qualityPriceScore.value));
+const scoreBorderColor = computed(() => getScoreBorderColor(qualityPriceScore.value));
+const scoreLabel = computed(() => getScoreLabel(qualityPriceScore.value));
 
 // Favorite logic (via composable — persists to DB when authenticated)
 const { favoriteIds, toggleFavorite: toggleFav, loadFavorites } = useFavorites();
@@ -238,31 +276,30 @@ function nextScreenshot() {
     }
 }
 
+const ratingLabel = computed(() =>
+    rawg.value?.source === 'steam' ? 'Note Steam' : 'Note joueurs',
+);
+
 const rawgReleaseDate = computed(() => {
     if (!rawg.value?.released) {
         return null;
     }
 
-    return new Date(rawg.value.released).toLocaleDateString('fr-FR', {
+    const parsed = new Date(rawg.value.released);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return rawg.value.released;
+    }
+
+    return parsed.toLocaleDateString('fr-FR', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
     });
 });
 
-// Truncated description
 const shortDescription = ref(true);
-const descriptionText = computed(() => {
-    if (!rawg.value?.description) {
-        return '';
-    }
-
-    if (shortDescription.value && rawg.value.description.length > 300) {
-        return rawg.value.description.slice(0, 300) + '...';
-    }
-
-    return rawg.value.description;
-});
+const descriptionIsLong = computed(() => (rawg.value?.description?.length ?? 0) > 400);
 
 onMounted(async () => {
     loadFavorites();
@@ -409,10 +446,20 @@ onMounted(async () => {
                             <Gamepad2 class="size-4 text-dealytics-purple" />
                             <h2 class="font-heading text-lg font-semibold">À propos</h2>
                         </div>
-                        <p class="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{{ descriptionText }}</p>
+                        <div class="relative">
+                            <div
+                                class="game-description text-sm leading-relaxed text-muted-foreground"
+                                :class="shortDescription && descriptionIsLong ? 'max-h-48 overflow-hidden' : ''"
+                                v-html="rawg.description"
+                            />
+                            <div
+                                v-if="shortDescription && descriptionIsLong"
+                                class="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-card to-transparent"
+                            />
+                        </div>
                         <button
-                            v-if="rawg.description.length > 300"
-                            class="mt-2 text-xs font-medium text-dealytics-purple hover:underline"
+                            v-if="descriptionIsLong"
+                            class="mt-3 text-xs font-medium text-dealytics-purple hover:underline"
                             @click="shortDescription = !shortDescription"
                         >
                             {{ shortDescription ? 'Lire la suite ↓' : 'Réduire ↑' }}
@@ -503,14 +550,14 @@ onMounted(async () => {
                     </div>
 
                     <!-- Price comparison chart (real per-store prices) -->
-                    <div v-if="nexarda.offers.length > 1" class="border-gradient rounded-xl p-6">
+                    <div v-if="filteredOffers.length > 1" class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <BarChart3 class="size-4 text-dealytics-purple" />
                             <h2 class="font-heading text-lg font-semibold">Comparaison des prix par magasin</h2>
                         </div>
 
                         <StorePriceChart
-                            :offers="nexarda.offers"
+                            :offers="filteredOffers"
                             :currency-symbol="currencySymbol"
                         />
 
@@ -541,34 +588,66 @@ onMounted(async () => {
                             </div>
                         </div>
 
+                        <!-- Platform filter -->
+                        <div v-if="offerPlatforms.length > 1" class="mb-4">
+                            <div class="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                <Monitor class="size-3.5" />
+                                Filtrer par plateforme
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    class="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                                    :class="selectedOfferPlatform === 'all'
+                                        ? 'border-dealytics-purple bg-dealytics-purple/20 text-dealytics-purple'
+                                        : 'border-border/50 bg-secondary/30 text-muted-foreground hover:border-dealytics-purple/40 hover:text-foreground'"
+                                    @click="selectedOfferPlatform = 'all'"
+                                >
+                                    Toutes ({{ nexarda.offers.length }})
+                                </button>
+                                <button
+                                    v-for="[slug, count] in offerPlatforms"
+                                    :key="slug"
+                                    type="button"
+                                    class="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                                    :class="selectedOfferPlatform === slug
+                                        ? 'border-dealytics-purple bg-dealytics-purple/20 text-dealytics-purple'
+                                        : 'border-border/50 bg-secondary/30 text-muted-foreground hover:border-dealytics-purple/40 hover:text-foreground'"
+                                    @click="selectedOfferPlatform = slug"
+                                >
+                                    {{ platformLabel(slug) }} ({{ count }})
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Best official vs best keyshop summary -->
                         <div class="mb-4 grid grid-cols-2 gap-3">
                             <div class="rounded-lg border border-dealytics-cyan/20 bg-dealytics-cyan/5 p-3 text-center">
                                 <div class="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">Store officiel</div>
-                                <div v-if="bestOfficialPrice" class="mt-1 text-xl font-bold text-dealytics-cyan">
-                                    {{ bestOfficialPrice.price.toFixed(2) }}{{ currencySymbol }}
+                                <div v-if="filteredBestOfficialPrice" class="mt-1 text-xl font-bold text-dealytics-cyan">
+                                    {{ filteredBestOfficialPrice.price.toFixed(2) }}{{ currencySymbol }}
                                 </div>
                                 <div v-else class="mt-1 text-sm text-muted-foreground">Indisponible</div>
-                                <div v-if="bestOfficialPrice" class="mt-0.5 text-[10px] text-muted-foreground">
-                                    {{ bestOfficialPrice.store }}
+                                <div v-if="filteredBestOfficialPrice" class="mt-0.5 text-[10px] text-muted-foreground">
+                                    {{ filteredBestOfficialPrice.store }}
                                 </div>
                             </div>
                             <div class="rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-3 text-center">
                                 <div class="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">Keyshop / Marketplace</div>
-                                <div v-if="bestKeyshopPrice" class="mt-1 text-xl font-bold text-yellow-400">
-                                    {{ bestKeyshopPrice.price.toFixed(2) }}{{ currencySymbol }}
+                                <div v-if="filteredBestKeyshopPrice" class="mt-1 text-xl font-bold text-yellow-400">
+                                    {{ filteredBestKeyshopPrice.price.toFixed(2) }}{{ currencySymbol }}
                                 </div>
                                 <div v-else class="mt-1 text-sm text-muted-foreground">Indisponible</div>
-                                <div v-if="bestKeyshopPrice" class="mt-0.5 text-[10px] text-muted-foreground">
-                                    {{ bestKeyshopPrice.store }}
+                                <div v-if="filteredBestKeyshopPrice" class="mt-0.5 text-[10px] text-muted-foreground">
+                                    {{ filteredBestKeyshopPrice.store }}
                                 </div>
                             </div>
                         </div>
 
                         <!-- Full offer list -->
-                        <div class="space-y-2">
+                        <div v-if="filteredOffers.length" class="space-y-2">
                             <a
-                                v-for="(offer, idx) in nexarda.offers"
+                                v-for="(offer, idx) in filteredOffers"
                                 :key="idx"
                                 :href="offer.url || '#'"
                                 target="_blank"
@@ -630,6 +709,9 @@ onMounted(async () => {
                                     <ExternalLink class="size-3.5 text-muted-foreground" />
                                 </div>
                             </a>
+                        </div>
+                        <div v-else class="rounded-lg bg-secondary/30 py-8 text-center text-sm text-muted-foreground">
+                            Aucune offre pour cette plateforme.
                         </div>
 
                         <p class="mt-3 text-center text-[10px] text-muted-foreground/60">
@@ -763,7 +845,7 @@ onMounted(async () => {
                                     <dd class="font-medium">{{ rawg.playtime }}h</dd>
                                 </div>
                                 <div v-if="rawg.rating > 0" class="flex justify-between">
-                                    <dt class="text-muted-foreground">Note RAWG</dt>
+                                    <dt class="text-muted-foreground">{{ ratingLabel }}</dt>
                                     <dd class="flex items-center gap-1 font-medium">
                                         <Star class="size-3 fill-yellow-400 text-yellow-400" />
                                         {{ rawg.rating.toFixed(1) }}/5
@@ -859,3 +941,49 @@ onMounted(async () => {
         </div>
     </div>
 </template>
+
+<style scoped>
+.game-description :deep(h2),
+.game-description :deep(h3) {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-heading);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.game-description :deep(h2:first-child),
+.game-description :deep(h3:first-child) {
+    margin-top: 0;
+}
+
+.game-description :deep(p) {
+    margin-bottom: 0.75rem;
+}
+
+.game-description :deep(p:last-child) {
+    margin-bottom: 0;
+}
+
+.game-description :deep(ul),
+.game-description :deep(ol) {
+    margin-bottom: 0.75rem;
+    margin-left: 1.25rem;
+    list-style-type: disc;
+}
+
+.game-description :deep(ol) {
+    list-style-type: decimal;
+}
+
+.game-description :deep(li) {
+    margin-bottom: 0.25rem;
+}
+
+.game-description :deep(strong),
+.game-description :deep(b) {
+    font-weight: 500;
+    color: var(--foreground);
+}
+</style>

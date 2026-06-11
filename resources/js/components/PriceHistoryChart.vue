@@ -37,7 +37,7 @@ const chartData = computed(() => {
         ),
         datasets: [
             {
-                label: 'Prix ($)',
+                label: 'Prix (€)',
                 data: sorted.map((p) => p.price),
                 borderColor: '#A855F7',
                 backgroundColor: 'rgba(168, 85, 247, 0.1)',
@@ -79,7 +79,7 @@ const chartOptions = {
             cornerRadius: 8,
             callbacks: {
                 label: (ctx: { dataset: { label: string }; parsed: { y: number } }) =>
-                    `${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`,
+                    `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}€`,
             },
         },
     },
@@ -100,7 +100,7 @@ const chartOptions = {
             ticks: {
                 color: 'rgba(255,255,255,0.4)',
                 font: { size: 10 },
-                callback: (value: string | number) => `$${value}`,
+                callback: (value: string | number) => `${value}€`,
             },
         },
     },

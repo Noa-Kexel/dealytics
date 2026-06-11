@@ -23,9 +23,21 @@ class PriceSnapshot extends Model
      */
     public static function record(string $gameId, float $price, int $discount = 0): void
     {
-        static::updateOrCreate(
-            ['game_id' => $gameId, 'captured_on' => now()->toDateString()],
-            ['price' => $price, 'discount' => $discount],
+        $now = now();
+
+        static::upsert(
+            [
+                [
+                    'game_id' => $gameId,
+                    'captured_on' => $now->toDateString(),
+                    'price' => $price,
+                    'discount' => $discount,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            ],
+            ['game_id', 'captured_on'],
+            ['price', 'discount', 'updated_at'],
         );
     }
 }

@@ -18,19 +18,12 @@ const notifications = ref<AppNotification[]>([]);
 const unreadCount = ref(0);
 const loaded = ref(false);
 
-function isAuthenticated(): boolean {
-    try {
-        const page = usePage();
-
-        return !!(page.props as { auth?: { user?: unknown } })?.auth?.user;
-    } catch {
-        return false;
-    }
-}
-
 export function useNotifications() {
+    const page = usePage();
+    const authenticated = !!(page.props as { auth?: { user?: unknown } })?.auth?.user;
+
     async function loadNotifications(): Promise<void> {
-        if (!isAuthenticated()) {
+        if (!authenticated) {
             notifications.value = [];
             unreadCount.value = 0;
             loaded.value = true;
@@ -54,7 +47,7 @@ export function useNotifications() {
     }
 
     async function markAsRead(id: string): Promise<void> {
-        if (!isAuthenticated()) {
+        if (!authenticated) {
             return;
         }
 
@@ -73,7 +66,7 @@ export function useNotifications() {
     }
 
     async function markAllAsRead(): Promise<void> {
-        if (!isAuthenticated()) {
+        if (!authenticated) {
             return;
         }
 

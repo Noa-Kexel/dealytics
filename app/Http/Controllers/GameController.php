@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PriceSnapshot;
 use App\Services\NexardaService;
 use App\Services\RawgService;
+use App\Services\SteamStoreService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -57,16 +58,23 @@ class GameController extends Controller
         return response()->json(['history' => $snapshots]);
     }
 
-    public function rawg(string $title, RawgService $rawg): JsonResponse
+    public function rawg(string $title, RawgService $rawg, SteamStoreService $steam): JsonResponse
     {
-        if (! $rawg->isConfigured()) {
-            return response()->json(['error' => 'RAWG API not configured'], 503);
+        if ($rawg->isConfigured()) {
+            $data = $rawg->getGameByTitle($title);
+
+            if ($data) {
+                return response()->json([
+                    ...$data,
+                    'source' => 'rawg',
+                ]);
+            }
         }
 
-        $data = $rawg->getGameByTitle($title);
+        $data = $steam->getGameByTitle($title);
 
         if (! $data) {
-            return response()->json(['error' => 'Game not found on RAWG'], 404);
+            return response()->json(['error' => 'Game not found'], 404);
         }
 
         return response()->json($data);

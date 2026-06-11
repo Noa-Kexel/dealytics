@@ -5,18 +5,18 @@ import { api } from '@/lib/api';
 export interface PriceAlert {
     id?: number;
     game_id?: string;
-    gameID?: string; // localStorage compat
+    gameID?: string;
     title: string;
     target_price?: number;
-    targetPrice?: number; // localStorage compat
+    targetPrice?: number;
     current_price?: number | null;
-    currentPrice?: number; // localStorage compat
+    currentPrice?: number;
     is_reached?: boolean;
-    reached?: boolean; // localStorage compat
+    reached?: boolean;
     created_at?: string;
-    createdAt?: string; // localStorage compat
+    createdAt?: string;
     notified_at?: string | null;
-    notifiedAt?: string; // localStorage compat
+    notifiedAt?: string;
 }
 
 export interface TriggeredAlert {
@@ -26,15 +26,28 @@ export interface TriggeredAlert {
     current_price: number;
 }
 
+function toNumber(value: unknown): number | null {
+    if (value == null || value === '') {
+        return null;
+    }
+
+    const n = Number(value);
+
+    return Number.isFinite(n) ? n : null;
+}
+
 function normalize(a: PriceAlert): PriceAlert {
+    const target = toNumber(a.target_price ?? a.targetPrice) ?? 0;
+    const current = toNumber(a.current_price ?? a.currentPrice);
+
     return {
         ...a,
         game_id: a.game_id || a.gameID,
         gameID: a.game_id || a.gameID,
-        target_price: a.target_price ?? a.targetPrice,
-        targetPrice: a.target_price ?? a.targetPrice,
-        current_price: a.current_price ?? a.currentPrice ?? null,
-        currentPrice: a.current_price ?? a.currentPrice ?? undefined,
+        target_price: target,
+        targetPrice: target,
+        current_price: current,
+        currentPrice: current ?? undefined,
         is_reached: a.is_reached ?? a.reached ?? false,
         reached: a.is_reached ?? a.reached ?? false,
         created_at: a.created_at || a.createdAt,
@@ -50,16 +63,7 @@ const POLL_INTERVAL_MS = 15 * 60 * 1000;
 const alerts = ref<PriceAlert[]>([]);
 const loaded = ref(false);
 let pollTimer: ReturnType<typeof setInterval> | null = null;
-
-function isAuthenticated(): boolean {
-    try {
-        const page = usePage();
-
-        return !!(page.props as { auth?: { user?: unknown } })?.auth?.user;
-    } catch {
-        return false;
-    }
-}
+let authenticated = false;
 
 function loadFromStorage(): PriceAlert[] {
     try {
@@ -129,8 +133,11 @@ function handleTriggeredAlerts(triggered: TriggeredAlert[]) {
 }
 
 export function useAlerts() {
+    const page = usePage();
+    authenticated = !!(page.props as { auth?: { user?: unknown } })?.auth?.user;
+
     async function loadAlerts(): Promise<void> {
-        if (isAuthenticated()) {
+        if (authenticated) {
             try {
                 const data = await api<PriceAlert[]>('/api/alerts');
                 alerts.value = data.map(normalize);
@@ -145,7 +152,7 @@ export function useAlerts() {
     }
 
     if (!loaded.value) {
-        if (isAuthenticated()) {
+        if (authenticated) {
             loadAlerts();
         } else {
             alerts.value = loadFromStorage();
@@ -178,7 +185,7 @@ export function useAlerts() {
             }));
         }
 
-        if (isAuthenticated()) {
+        if (authenticated) {
             try {
                 await api('/api/alerts', {
                     method: 'POST',
@@ -199,7 +206,7 @@ export function useAlerts() {
             (a) => (a.game_id || a.gameID) !== gameID,
         );
 
-        if (isAuthenticated()) {
+        if (authenticated) {
             try {
                 await api(`/api/alerts/${gameID}`, { method: 'DELETE' });
             } catch {
@@ -239,7 +246,7 @@ export function useAlerts() {
             return [];
         }
 
-        if (isAuthenticated()) {
+        if (authenticated) {
             return checkAlertsServer();
         }
 
@@ -311,14 +318,12 @@ export function useAlerts() {
                         alerts.value[idx].notifiedAt = now;
                     }
 
-                    const item: TriggeredAlert = {
+                    triggered.push({
                         game_id: alertGameId!,
                         title: alert.title,
                         target_price: targetPrice,
                         current_price: bestPrice,
-                    };
-
-                    triggered.push(item);
+                    });
                 }
             } catch {
                 // Skip

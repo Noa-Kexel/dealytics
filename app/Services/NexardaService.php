@@ -9,6 +9,15 @@ class NexardaService
 {
     private string $baseUrl = 'https://www.nexarda.com/api/v3';
 
+    private static function extractPlatform(?string $editionFull): ?string
+    {
+        if (! $editionFull || ! preg_match('/FOR:([A-Z0-9\-]+)/i', $editionFull, $matches)) {
+            return null;
+        }
+
+        return strtoupper($matches[1]);
+    }
+
     /**
      * Search games (or fetch the popularity-ordered feed) for the home page.
      *
@@ -152,6 +161,7 @@ class NexardaService
                                     'official' => $offer['store']['official'] ?? false,
                                     'edition' => $offer['edition'] ?? null,
                                     'editionFull' => $offer['edition_full'] ?? null,
+                                    'platform' => self::extractPlatform($offer['edition_full'] ?? null),
                                     'region' => $offer['region'] ?? null,
                                     'price' => $offer['price'] ?? 0,
                                     'discount' => $offer['discount'] ?? 0,

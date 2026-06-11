@@ -19,7 +19,6 @@ createInertiaApp({
                 return [AppLayout, SettingsLayout];
             case name === 'Home':
             case name === 'Favorites':
-            case name === 'Alerts':
             case name === 'GameDashboard':
             case name.startsWith('Game/'):
                 return DealyticsLayout;
@@ -32,5 +31,4 @@ createInertiaApp({
     },
 });
 
-// This will set light / dark mode on page load...
 initializeTheme();
