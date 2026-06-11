@@ -6,8 +6,10 @@ import {
     LinearScale,
     BarElement,
     Title,
-    Tooltip,
+    Tooltip
+
 } from 'chart.js';
+import type {ChartOptions} from 'chart.js';
 import {
     Star,
     Bell,
@@ -38,7 +40,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useAlerts } from '@/composables/useAlerts';
-import { useBudget } from '@/composables/useBudget';
+import { useBudget  } from '@/composables/useBudget';
+import type {Purchase} from '@/composables/useBudget';
 import { useFavorites } from '@/composables/useFavorites';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
@@ -103,7 +106,7 @@ const spendingChartData = ref({
     ],
 });
 
-const spendingChartOptions = {
+const spendingChartOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -116,7 +119,11 @@ const spendingChartOptions = {
             bodyColor: '#f2f2f2',
             cornerRadius: 8,
             callbacks: {
-                label: (ctx: { parsed: { y: number } }) => `${ctx.parsed.y.toFixed(2)}€`,
+                label: (tooltipItem) => {
+                    const y = tooltipItem.parsed.y;
+
+                    return y != null ? `${y.toFixed(2)}€` : '';
+                },
             },
         },
     },
@@ -165,6 +172,16 @@ async function submitPurchase() {
 async function handleRemovePurchase(id: string | number) {
     await removePurchase(id);
     refreshChart();
+}
+
+function formatPurchaseDate(purchase: Purchase): string {
+    const raw = purchase.purchased_at ?? purchase.date;
+
+    return raw ? new Date(raw).toLocaleDateString('fr-FR') : '';
+}
+
+function purchaseOriginalPrice(purchase: Purchase): number {
+    return purchase.original_price ?? purchase.originalPrice ?? purchase.price;
 }
 
 async function refreshChart() {
@@ -427,14 +444,14 @@ onMounted(async () => {
                         <div>
                             <div class="text-xs font-medium">{{ purchase.gameTitle }}</div>
                             <div class="text-[10px] text-muted-foreground">
-                                {{ purchase.store }} · {{ new Date(purchase.date).toLocaleDateString('fr-FR') }}
+                                {{ purchase.store }} · {{ formatPurchaseDate(purchase) }}
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="text-right">
                                 <div class="text-xs font-semibold text-dealytics-cyan">{{ purchase.price.toFixed(2) }}€</div>
-                                <div v-if="purchase.originalPrice > purchase.price" class="text-[10px] text-muted-foreground line-through">
-                                    {{ purchase.originalPrice.toFixed(2) }}€
+                                <div v-if="purchaseOriginalPrice(purchase) > purchase.price" class="text-[10px] text-muted-foreground line-through">
+                                    {{ purchaseOriginalPrice(purchase).toFixed(2) }}€
                                 </div>
                             </div>
                             <button
