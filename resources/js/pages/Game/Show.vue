@@ -16,10 +16,13 @@ import {
     ChevronLeft,
     ChevronRight,
     BarChart3,
+    TrendingDown,
+    CalendarClock,
     Image as ImageIcon,
 } from 'lucide-vue-next';
 import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import DealBadge from '@/components/DealBadge.vue';
+import PriceHistoryChart from '@/components/PriceHistoryChart.vue';
 import StorePriceChart from '@/components/StorePriceChart.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,10 +97,20 @@ const gameId = page.props.gameId;
 
 const { addAlert, getAlert, removeAlert } = useAlerts();
 
+interface PricePoint {
+    date: number;
+    price: number;
+    store: string;
+}
+
 const nexarda = ref<NexardaData | null>(null);
 const loading = ref(true);
 const alertPrice = ref('');
 const alertSet = ref(false);
+
+// Real price history (snapshots stored in DB, one per day).
+const priceHistory = ref<PricePoint[]>([]);
+const hasHistory = computed(() => priceHistory.value.length >= 2);
 
 // RAWG enrichment
 const rawg = ref<RawgData | null>(null);
@@ -310,6 +323,24 @@ onMounted(async () => {
 
         if (response.ok) {
             nexarda.value = await response.json();
+        }
+
+        // Real price history (built from daily snapshots)
+        try {
+            const historyResponse = await fetch(`/api/games/${gameId}/history`);
+
+            if (historyResponse.ok) {
+                const { history } = await historyResponse.json();
+                priceHistory.value = (history ?? []).map(
+                    (p: { date: number; price: number }) => ({
+                        date: p.date,
+                        price: p.price,
+                        store: 'Meilleur prix',
+                    }),
+                );
+            }
+        } catch {
+            // history is optional
         }
 
         // Check existing alert
@@ -546,6 +577,30 @@ onMounted(async () => {
                             >
                                 <img :src="url" :alt="`Thumb ${idx + 1}`" class="h-12 w-20 object-cover" />
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Price history (real daily snapshots) -->
+                    <div class="border-gradient rounded-xl p-6">
+                        <div class="mb-4 flex items-center gap-2">
+                            <TrendingDown class="size-4 text-dealytics-cyan" />
+                            <h2 class="font-heading text-lg font-semibold">Historique des prix</h2>
+                        </div>
+
+                        <PriceHistoryChart
+                            v-if="hasHistory"
+                            :price-history="priceHistory"
+                            :current-price="currentPrice"
+                            :currency-symbol="currencySymbol"
+                        />
+                        <div v-else class="flex flex-col items-center justify-center py-10 text-center">
+                            <CalendarClock class="mb-3 size-10 text-muted-foreground/30" />
+                            <p class="text-sm text-muted-foreground">
+                                L'historique se construit jour après jour.
+                            </p>
+                            <p class="mt-1 text-xs text-muted-foreground/70">
+                                Revenez bientôt pour suivre l'évolution du prix de ce jeu.
+                            </p>
                         </div>
                     </div>
 

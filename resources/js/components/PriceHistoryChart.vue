@@ -9,6 +9,7 @@ import {
     Tooltip,
     Filler,
 } from 'chart.js';
+import type { ChartOptions, TooltipItem } from 'chart.js';
 import { computed } from 'vue';
 import { Line } from 'vue-chartjs';
 
@@ -20,10 +21,14 @@ interface PricePoint {
     store: string;
 }
 
-const props = defineProps<{
-    priceHistory: PricePoint[];
-    currentPrice: number;
-}>();
+const props = withDefaults(
+    defineProps<{
+        priceHistory: PricePoint[];
+        currentPrice: number;
+        currencySymbol?: string;
+    }>(),
+    { currencySymbol: '€' },
+);
 
 const chartData = computed(() => {
     const sorted = [...props.priceHistory].sort((a, b) => a.date - b.date);
@@ -31,13 +36,13 @@ const chartData = computed(() => {
     return {
         labels: sorted.map((p) =>
             new Date(p.date * 1000).toLocaleDateString('fr-FR', {
+                day: 'numeric',
                 month: 'short',
-                year: '2-digit',
             }),
         ),
         datasets: [
             {
-                label: 'Prix (€)',
+                label: `Prix (${props.currencySymbol})`,
                 data: sorted.map((p) => p.price),
                 borderColor: '#A855F7',
                 backgroundColor: 'rgba(168, 85, 247, 0.1)',
@@ -62,7 +67,7 @@ const chartData = computed(() => {
     };
 });
 
-const chartOptions = {
+const chartOptions = computed<ChartOptions<'line'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -78,8 +83,8 @@ const chartOptions = {
             padding: 10,
             cornerRadius: 8,
             callbacks: {
-                label: (ctx: { dataset: { label: string }; parsed: { y: number } }) =>
-                    `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}€`,
+                label: (ctx: TooltipItem<'line'>) =>
+                    `${ctx.dataset.label}: ${(ctx.parsed.y ?? 0).toFixed(2)}${props.currencySymbol}`,
             },
         },
     },
@@ -100,11 +105,11 @@ const chartOptions = {
             ticks: {
                 color: 'rgba(255,255,255,0.4)',
                 font: { size: 10 },
-                callback: (value: string | number) => `${value}€`,
+                callback: (value: string | number) => `${value}${props.currencySymbol}`,
             },
         },
     },
-};
+}));
 </script>
 
 <template>
