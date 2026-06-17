@@ -3,8 +3,10 @@
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceAlertController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\SteamWishlistController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -24,8 +26,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // API — Alertes prix
     Route::get('api/alerts', [PriceAlertController::class, 'index']);
     Route::post('api/alerts', [PriceAlertController::class, 'store']);
+    Route::post('api/alerts/check', [PriceAlertController::class, 'check']);
     Route::patch('api/alerts/{gameId}', [PriceAlertController::class, 'update']);
     Route::delete('api/alerts/{gameId}', [PriceAlertController::class, 'destroy']);
+
+    // API — Notifications
+    Route::get('api/notifications', [NotificationController::class, 'index']);
+    Route::get('api/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('api/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('api/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
     // API — Achats
     Route::get('api/purchases', [PurchaseController::class, 'index']);
@@ -36,10 +45,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // API — Budget
     Route::get('api/budget', [BudgetController::class, 'show']);
     Route::put('api/budget', [BudgetController::class, 'update']);
+
+    // API — Steam wishlist
+    Route::get('api/steam/wishlist', [SteamWishlistController::class, 'show']);
+    Route::post('api/steam/wishlist', [SteamWishlistController::class, 'store']);
+    Route::delete('api/steam/wishlist', [SteamWishlistController::class, 'destroy']);
 });
 
 Route::get('game/{id}', [GameController::class, 'show'])->name('game.show');
+Route::get('api/games', [GameController::class, 'games'])->name('game.search');
+Route::get('api/games/{id}/history', [GameController::class, 'history'])->whereNumber('id')->name('game.history');
 Route::get('api/rawg/{title}', [GameController::class, 'rawg'])->name('game.rawg');
-Route::get('api/itad/{title}', [GameController::class, 'itad'])->name('game.itad');
+Route::get('api/nexarda/game/{id}', [GameController::class, 'nexardaById'])->whereNumber('id')->name('game.nexarda.id');
+Route::get('api/nexarda/{title}', [GameController::class, 'nexarda'])->name('game.nexarda');
 
 require __DIR__.'/settings.php';

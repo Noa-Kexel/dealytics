@@ -136,6 +136,18 @@ export function useBudget() {
 
     const isOverBudget = computed(() => totalSpent.value > budget.value.limit);
 
+    function wouldExceedBudgetWith(additionalAmount: number): boolean {
+        if (additionalAmount <= 0) {
+            return false;
+        }
+
+        return totalSpent.value + additionalAmount > budget.value.limit;
+    }
+
+    function getBudgetOverflowWith(additionalAmount: number): number {
+        return Math.max(0, totalSpent.value + additionalAmount - budget.value.limit);
+    }
+
     async function setLimit(limit: number) {
         budget.value.limit = limit;
 
@@ -258,6 +270,8 @@ export function useBudget() {
         remaining,
         budgetPercent,
         isOverBudget,
+        wouldExceedBudgetWith,
+        getBudgetOverflowWith,
         loadBudget,
         setLimit,
         addPurchase,

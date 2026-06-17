@@ -108,6 +108,72 @@ class ItadService
     }
 
     /**
+     * Price history for a game UUID over the given window (months).
+     * Returns chronological points: [{ date: unix, price: float }].
+     *
+     * @return array<int, array{date: int, price: float}>
+     */
+    public function getHistory(string $gameUuid, int $months = 24, string $country = 'FR'): array
+    {
+        if (! $this->isConfigured()) {
+            return [];
+        }
+
+        $cacheKey = "itad_history_{$gameUuid}_{$months}_{$country}";
+
+        return Cache::remember($cacheKey, now()->addHours(6), function () use ($gameUuid, $months, $country) {
+            try {
+                $response = Http::timeout(10)->get("{$this->baseUrl}/games/history/v2", [
+                    'key' => $this->apiKey,
+                    'id' => $gameUuid,
+                    'country' => $country,
+                    'since' => now()->subMonths($months)->toIso8601String(),
+                ]);
+
+                if (! $response->successful()) {
+                    return [];
+                }
+
+                return collect($response->json())
+                    ->map(function ($entry) {
+                        $amount = $entry['deal']['price']['amount'] ?? null;
+
+                        if ($amount === null || empty($entry['timestamp'])) {
+                            return null;
+                        }
+
+                        return [
+                            'date' => strtotime($entry['timestamp']),
+                            'price' => (float) $amount,
+                        ];
+                    })
+                    ->filter()
+                    ->sortBy('date')
+                    ->values()
+                    ->all();
+            } catch (\Throwable) {
+                return [];
+            }
+        });
+    }
+
+    /**
+     * Look up a game by title/Steam App ID, then return its price history.
+     *
+     * @return array<int, array{date: int, price: float}>
+     */
+    public function getPriceHistoryForGame(string $title, ?string $steamAppId = null, int $months = 24): array
+    {
+        $game = $this->lookupGame($title, $steamAppId);
+
+        if (! $game || empty($game['id'])) {
+            return [];
+        }
+
+        return $this->getHistory($game['id'], $months);
+    }
+
+    /**
      * Full lookup: search game + get all current prices.
      * Returns normalized data ready for the frontend.
      */

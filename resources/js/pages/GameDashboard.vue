@@ -6,15 +6,17 @@ import {
     LinearScale,
     BarElement,
     Title,
-    Tooltip,
+    Tooltip
+
 } from 'chart.js';
+import type {ChartOptions} from 'chart.js';
 import {
     Star,
     Bell,
     TrendingDown,
     Trophy,
     Calendar,
-    DollarSign,
+    Euro,
     Target,
     Plus,
     Trash2,
@@ -22,9 +24,11 @@ import {
     ExternalLink,
     Flame,
     Check,
+    TriangleAlert,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted } from 'vue';
 import { Bar } from 'vue-chartjs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -36,7 +40,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useAlerts } from '@/composables/useAlerts';
-import { useBudget } from '@/composables/useBudget';
+import { useBudget  } from '@/composables/useBudget';
+import type {Purchase} from '@/composables/useBudget';
 import { useFavorites } from '@/composables/useFavorites';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
@@ -49,6 +54,8 @@ const {
     remaining,
     budgetPercent,
     isOverBudget,
+    wouldExceedBudgetWith,
+    getBudgetOverflowWith,
     loadBudget,
     setLimit,
     addPurchase,
@@ -58,7 +65,7 @@ const {
 
 const { favorites: favoritesData, loadFavorites } = useFavorites();
 const favorites = computed(() => favoritesData.value);
-const topDeals = ref<{ dealID: string; title: string; salePrice: string; normalPrice: string; savings: string; thumb: string; gameID: string }[]>([]);
+const topDeals = ref<{ id: string; title: string; image: string | null; price: number | null; normalPrice: number | null; discount: number }[]>([]);
 const loadingDeals = ref(true);
 
 // Budget editing
@@ -70,13 +77,26 @@ const newPurchaseTitle = ref('');
 const newPurchasePrice = ref('');
 const newPurchaseOriginal = ref('');
 const newPurchaseStore = ref('');
+const justAddedOverBudget = ref(false);
+
+const newPurchasePriceNum = computed(() => parseFloat(newPurchasePrice.value) || 0);
+
+const purchaseWouldExceedBudget = computed(() =>
+    wouldExceedBudgetWith(newPurchasePriceNum.value),
+);
+
+const projectedMonthlyTotal = computed(() => totalSpent.value + newPurchasePriceNum.value);
+
+const purchaseOverflowAmount = computed(() =>
+    getBudgetOverflowWith(newPurchasePriceNum.value),
+);
 
 // Spending chart
 const spendingChartData = ref({
     labels: [] as string[],
     datasets: [
         {
-            label: 'Dépenses ($)',
+            label: 'Dépenses (€)',
             data: [] as number[],
             backgroundColor: 'rgba(168, 85, 247, 0.7)',
             borderColor: '#A855F7',
@@ -86,7 +106,7 @@ const spendingChartData = ref({
     ],
 });
 
-const spendingChartOptions = {
+const spendingChartOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -99,7 +119,11 @@ const spendingChartOptions = {
             bodyColor: '#f2f2f2',
             cornerRadius: 8,
             callbacks: {
-                label: (ctx: { parsed: { y: number } }) => `$${ctx.parsed.y.toFixed(2)}`,
+                label: (tooltipItem) => {
+                    const y = tooltipItem.parsed.y;
+
+                    return y != null ? `${y.toFixed(2)}€` : '';
+                },
             },
         },
     },
@@ -113,7 +137,7 @@ const spendingChartOptions = {
             ticks: {
                 color: 'rgba(255,255,255,0.4)',
                 font: { size: 10 },
-                callback: (value: string | number) => `$${value}`,
+                callback: (value: string | number) => `${value}€`,
             },
         },
     },
@@ -133,7 +157,10 @@ async function submitPurchase() {
     const original = parseFloat(newPurchaseOriginal.value) || price;
 
     if (newPurchaseTitle.value && price > 0) {
+        const willExceedBudget = wouldExceedBudgetWith(price);
+
         await addPurchase(newPurchaseTitle.value, price, original, newPurchaseStore.value || 'N/A');
+        justAddedOverBudget.value = willExceedBudget;
         newPurchaseTitle.value = '';
         newPurchasePrice.value = '';
         newPurchaseOriginal.value = '';
@@ -147,13 +174,23 @@ async function handleRemovePurchase(id: string | number) {
     refreshChart();
 }
 
+function formatPurchaseDate(purchase: Purchase): string {
+    const raw = purchase.purchased_at ?? purchase.date;
+
+    return raw ? new Date(raw).toLocaleDateString('fr-FR') : '';
+}
+
+function purchaseOriginalPrice(purchase: Purchase): number {
+    return purchase.original_price ?? purchase.originalPrice ?? purchase.price;
+}
+
 async function refreshChart() {
     const history = await getSpendingHistoryAsync();
     spendingChartData.value = {
         labels: history.map((h) => h.month),
         datasets: [
             {
-                label: 'Dépenses ($)',
+                label: 'Dépenses (€)',
                 data: history.map((h) => h.spent),
                 backgroundColor: 'rgba(168, 85, 247, 0.7)',
                 borderColor: '#A855F7',
@@ -178,12 +215,14 @@ onMounted(async () => {
     // Load spending chart
     refreshChart();
 
-    // Load top deals
+    // Load top deals (Nexarda popularity feed, biggest discounts first)
     try {
-        const response = await fetch(
-            'https://www.cheapshark.com/api/1.0/deals?sortBy=Deal Rating&pageSize=5&onSale=1',
-        );
-        topDeals.value = await response.json();
+        const response = await fetch('/api/games');
+        const data = await response.json();
+        topDeals.value = (data.games ?? [])
+            .filter((g: { price: number | null; discount: number }) => g.price !== null && g.discount > 0)
+            .sort((a: { discount: number }, b: { discount: number }) => b.discount - a.discount)
+            .slice(0, 5);
     } catch {
         // ignore
     } finally {
@@ -242,9 +281,9 @@ onMounted(async () => {
             </div>
             <div class="border-gradient rounded-xl p-4">
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
-                    <DollarSign class="size-4 text-dealytics-pink" />
+                    <Euro class="size-4 text-dealytics-pink" />
                 </div>
-                <div class="text-2xl font-bold text-dealytics-pink">${{ totalSaved.toFixed(2) }}</div>
+                <div class="text-2xl font-bold text-dealytics-pink">{{ totalSaved.toFixed(2) }}€</div>
                 <div class="text-xs text-muted-foreground">Economisé</div>
                 <div class="text-[10px] text-muted-foreground/70">ce mois-ci</div>
             </div>
@@ -267,10 +306,10 @@ onMounted(async () => {
                 <!-- Budget amount -->
                 <div class="mb-2 flex items-baseline gap-2">
                     <span class="text-3xl font-bold" :class="isOverBudget ? 'text-red-400' : 'text-dealytics-cyan'">
-                        ${{ totalSpent.toFixed(2) }}
+                        {{ totalSpent.toFixed(2) }}€
                     </span>
                     <span class="text-sm text-muted-foreground">
-                        / ${{ budget.limit }}
+                        / {{ budget.limit }}€
                         <button
                             class="ml-1 text-dealytics-purple hover:text-dealytics-purple/80"
                             @click="editingBudget = !editingBudget; newBudgetLimit = budget.limit.toString()"
@@ -305,8 +344,8 @@ onMounted(async () => {
                 </div>
 
                 <p class="mb-4 text-xs text-muted-foreground">
-                    <span v-if="isOverBudget" class="text-red-400">Budget dépassé de ${{ (totalSpent - budget.limit).toFixed(2) }}</span>
-                    <span v-else>{{ 100 - budgetPercent }}% restant · ${{ remaining.toFixed(2) }} disponible</span>
+                    <span v-if="isOverBudget" class="text-red-400">Budget dépassé de {{ (totalSpent - budget.limit).toFixed(2) }}€</span>
+                    <span v-else>{{ 100 - budgetPercent }}% restant · {{ remaining.toFixed(2) }}€ disponible</span>
                 </p>
 
                 <!-- Mini stats -->
@@ -316,12 +355,12 @@ onMounted(async () => {
                         <div class="text-[10px] text-muted-foreground">Achetés</div>
                     </div>
                     <div class="rounded-lg bg-secondary/50 p-2 text-center">
-                        <div class="text-sm font-semibold text-dealytics-cyan">${{ totalSaved.toFixed(2) }}</div>
+                        <div class="text-sm font-semibold text-dealytics-cyan">{{ totalSaved.toFixed(2) }}€</div>
                         <div class="text-[10px] text-muted-foreground">Economisé</div>
                     </div>
                     <div class="rounded-lg bg-secondary/50 p-2 text-center">
                         <div class="text-sm font-semibold" :class="isOverBudget ? 'text-red-400' : 'text-dealytics-pink'">
-                            ${{ remaining.toFixed(2) }}
+                            {{ remaining.toFixed(2) }}€
                         </div>
                         <div class="text-[10px] text-muted-foreground">Restant</div>
                     </div>
@@ -340,10 +379,23 @@ onMounted(async () => {
                             <DialogTitle class="font-heading">Ajouter un achat</DialogTitle>
                         </DialogHeader>
                         <div class="space-y-3">
+                            <Alert
+                                v-if="purchaseWouldExceedBudget"
+                                variant="destructive"
+                                class="border-red-400/30 bg-red-400/10"
+                            >
+                                <TriangleAlert />
+                                <AlertTitle>Budget mensuel dépassé</AlertTitle>
+                                <AlertDescription>
+                                    Avec cet achat, vous atteindrez {{ projectedMonthlyTotal.toFixed(2) }}€ ce mois-ci,
+                                    soit {{ purchaseOverflowAmount.toFixed(2) }}€ au-dessus de votre budget de {{ budget.limit }}€.
+                                    Vous vous êtes fixé une limite — ce n'est pas une bonne idée de la dépasser !
+                                </AlertDescription>
+                            </Alert>
                             <Input v-model="newPurchaseTitle" placeholder="Nom du jeu" class="text-sm" />
                             <div class="grid grid-cols-2 gap-3">
-                                <Input v-model="newPurchasePrice" type="number" step="0.01" min="0" placeholder="Prix payé ($)" class="text-sm" />
-                                <Input v-model="newPurchaseOriginal" type="number" step="0.01" min="0" placeholder="Prix original ($)" class="text-sm" />
+                                <Input v-model="newPurchasePrice" type="number" step="0.01" min="0" placeholder="Prix payé (€)" class="text-sm" />
+                                <Input v-model="newPurchaseOriginal" type="number" step="0.01" min="0" placeholder="Prix original (€)" class="text-sm" />
                             </div>
                             <Input v-model="newPurchaseStore" placeholder="Magasin (ex: Steam)" class="text-sm" />
                             <DialogClose as-child>
@@ -359,6 +411,29 @@ onMounted(async () => {
                     </DialogContent>
                 </Dialog>
 
+                <Alert
+                    v-if="justAddedOverBudget && isOverBudget"
+                    variant="destructive"
+                    class="mt-3 border-red-400/30 bg-red-400/10"
+                >
+                    <TriangleAlert />
+                    <AlertTitle>Budget dépassé</AlertTitle>
+                    <AlertDescription class="flex flex-col gap-2">
+                        <span>
+                            Vous avez dépassé le budget mensuel que vous vous étiez fixé ({{ budget.limit }}€).
+                            Total dépensé ce mois-ci : {{ totalSpent.toFixed(2) }}€.
+                            Essayez de respecter vos objectifs la prochaine fois !
+                        </span>
+                        <button
+                            type="button"
+                            class="self-start text-xs font-medium underline underline-offset-2 hover:no-underline"
+                            @click="justAddedOverBudget = false"
+                        >
+                            J'ai compris
+                        </button>
+                    </AlertDescription>
+                </Alert>
+
                 <!-- Purchase list -->
                 <div v-if="budget.purchases.length > 0" class="mt-4 space-y-2">
                     <div
@@ -369,14 +444,14 @@ onMounted(async () => {
                         <div>
                             <div class="text-xs font-medium">{{ purchase.gameTitle }}</div>
                             <div class="text-[10px] text-muted-foreground">
-                                {{ purchase.store }} · {{ new Date(purchase.date).toLocaleDateString('fr-FR') }}
+                                {{ purchase.store }} · {{ formatPurchaseDate(purchase) }}
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="text-right">
-                                <div class="text-xs font-semibold text-dealytics-cyan">${{ purchase.price.toFixed(2) }}</div>
-                                <div v-if="purchase.originalPrice > purchase.price" class="text-[10px] text-muted-foreground line-through">
-                                    ${{ purchase.originalPrice.toFixed(2) }}
+                                <div class="text-xs font-semibold text-dealytics-cyan">{{ purchase.price.toFixed(2) }}€</div>
+                                <div v-if="purchaseOriginalPrice(purchase) > purchase.price" class="text-[10px] text-muted-foreground line-through">
+                                    {{ purchaseOriginalPrice(purchase).toFixed(2) }}€
                                 </div>
                             </div>
                             <button
@@ -405,7 +480,7 @@ onMounted(async () => {
         <!-- Alerts + Top Deals -->
         <div class="grid gap-4 lg:grid-cols-2">
             <!-- Active Alerts -->
-            <div class="border-gradient rounded-xl p-6">
+            <div id="price-alerts" class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <Bell class="size-4 text-dealytics-cyan" />
                     <h2 class="font-heading text-lg font-semibold">Alertes de prix</h2>
@@ -416,20 +491,20 @@ onMounted(async () => {
                     <p class="text-[10px] font-medium uppercase tracking-wider text-dealytics-pink">Objectif atteint</p>
                     <div
                         v-for="alert in getReachedAlerts()"
-                        :key="alert.gameID"
+                        :key="alert.game_id || alert.gameID"
                         class="flex items-center justify-between rounded-lg bg-dealytics-pink/10 px-3 py-2"
                     >
                         <div>
                             <div class="text-xs font-medium">{{ alert.title }}</div>
                             <div class="text-[10px] text-dealytics-pink">
-                                Objectif ${{ alert.targetPrice.toFixed(2) }} atteint !
+                                Objectif {{ (alert.targetPrice ?? alert.target_price ?? 0).toFixed(2) }}€ atteint !
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <Link :href="`/game/${alert.gameID}`" class="text-dealytics-cyan hover:text-dealytics-cyan/80">
+                            <Link :href="`/game/${alert.game_id || alert.gameID}`" class="text-dealytics-cyan hover:text-dealytics-cyan/80">
                                 <ExternalLink class="size-3.5" />
                             </Link>
-                            <button class="text-muted-foreground/50 hover:text-red-400" @click="removeAlert(alert.gameID)">
+                            <button class="text-muted-foreground/50 hover:text-red-400" @click="removeAlert(alert.game_id || alert.gameID || '')">
                                 <Trash2 class="size-3" />
                             </button>
                         </div>
@@ -441,21 +516,23 @@ onMounted(async () => {
                     <p class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">En surveillance</p>
                     <div
                         v-for="alert in getActiveAlerts()"
-                        :key="alert.gameID"
+                        :key="alert.game_id || alert.gameID"
                         class="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2"
                     >
                         <div>
                             <div class="text-xs font-medium">{{ alert.title }}</div>
                             <div class="text-[10px] text-muted-foreground">
-                                Objectif : ${{ alert.targetPrice.toFixed(2) }}
-                                <span v-if="alert.currentPrice"> · Actuel : ${{ alert.currentPrice.toFixed(2) }}</span>
+                                Objectif : {{ (alert.targetPrice ?? alert.target_price ?? 0).toFixed(2) }}€
+                                <span v-if="alert.currentPrice ?? alert.current_price">
+                                    · Actuel : {{ (alert.currentPrice ?? alert.current_price ?? 0).toFixed(2) }}€
+                                </span>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <Link :href="`/game/${alert.gameID}`" class="text-dealytics-cyan hover:text-dealytics-cyan/80">
+                            <Link :href="`/game/${alert.game_id || alert.gameID}`" class="text-dealytics-cyan hover:text-dealytics-cyan/80">
                                 <ExternalLink class="size-3.5" />
                             </Link>
-                            <button class="text-muted-foreground/50 hover:text-red-400" @click="removeAlert(alert.gameID)">
+                            <button class="text-muted-foreground/50 hover:text-red-400" @click="removeAlert(alert.game_id || alert.gameID || '')">
                                 <Trash2 class="size-3" />
                             </button>
                         </div>
@@ -481,19 +558,19 @@ onMounted(async () => {
                 <div v-else class="space-y-2">
                     <Link
                         v-for="deal in topDeals"
-                        :key="deal.dealID"
-                        :href="`/game/${deal.gameID}`"
+                        :key="deal.id"
+                        :href="`/game/${deal.id}`"
                         class="flex items-center gap-3 rounded-lg bg-secondary/30 p-2 transition-colors hover:bg-secondary/50"
                     >
-                        <img :src="deal.thumb" :alt="deal.title" class="size-10 rounded object-cover" />
+                        <img :src="deal.image || ''" :alt="deal.title" class="size-10 rounded object-cover" />
                         <div class="min-w-0 flex-1">
                             <div class="truncate text-xs font-medium">{{ deal.title }}</div>
                             <div class="flex items-center gap-2">
-                                <span class="text-xs font-bold text-dealytics-cyan">${{ parseFloat(deal.salePrice).toFixed(2) }}</span>
-                                <span class="text-[10px] text-muted-foreground line-through">${{ parseFloat(deal.normalPrice).toFixed(2) }}</span>
+                                <span class="text-xs font-bold text-dealytics-cyan">{{ (deal.price ?? 0).toFixed(2) }}€</span>
+                                <span v-if="deal.normalPrice" class="text-[10px] text-muted-foreground line-through">{{ deal.normalPrice.toFixed(2) }}€</span>
                                 <span class="flex items-center gap-0.5 text-[10px] font-semibold text-dealytics-pink">
                                     <Flame class="size-2.5" />
-                                    -{{ Math.round(parseFloat(deal.savings)) }}%
+                                    -{{ Math.round(deal.discount) }}%
                                 </span>
                             </div>
                         </div>

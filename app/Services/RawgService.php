@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\GameDescriptionFormatter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -133,9 +134,10 @@ class RawgService
         $screenshots = $this->getScreenshots($searchResult['id']);
 
         return [
+            'source' => 'rawg',
             'id' => $details['id'],
             'name' => $details['name'],
-            'description' => $details['description_raw'] ?? '',
+            'description' => GameDescriptionFormatter::fromPlainText($details['description_raw'] ?? ''),
             'released' => $details['released'] ?? null,
             'background_image' => $details['background_image'] ?? null,
             'rating' => $details['rating'] ?? 0,

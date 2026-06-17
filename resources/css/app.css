@@ -209,6 +209,23 @@
     .font-heading {
         font-family: var(--font-heading), serif;
     }
+
+    .hero-image-fade {
+        -webkit-mask-image: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(0, 0, 0, 0.35) 18%,
+            rgba(0, 0, 0, 0.85) 30%,
+            black 42%
+        );
+        mask-image: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(0, 0, 0, 0.35) 18%,
+            rgba(0, 0, 0, 0.85) 30%,
+            black 42%
+        );
+    }
 }
 
 /* Page entrance animation */

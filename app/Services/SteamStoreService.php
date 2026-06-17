@@ -1,0 +1,164 @@
+<?php
+
+namespace App\Services;
+
+use App\Support\GameDescriptionFormatter;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+
+class SteamStoreService
+{
+    /**
+     * Search by title and return enriched game data (same shape as RawgService).
+     * Uses Steam's public store API — no API key required.
+     */
+    public function getGameByTitle(string $title): ?array
+    {
+        $appId = $this->searchAppId($title);
+
+        if (! $appId) {
+            return null;
+        }
+
+        return $this->getGameByAppId($appId);
+    }
+
+    private function searchAppId(string $title): ?int
+    {
+        $cacheKey = 'steam_search_'.md5(mb_strtolower(trim($title)));
+
+        return Cache::remember($cacheKey, now()->addHours(24), function () use ($title) {
+            try {
+                $response = Http::timeout(8)->get('https://store.steampowered.com/api/storesearch/', [
+                    'term' => $title,
+                    'l' => 'french',
+                    'cc' => 'fr',
+                ]);
+
+                if (! $response->successful()) {
+                    return null;
+                }
+
+                $items = $response->json('items', []);
+
+                if (empty($items)) {
+                    return null;
+                }
+
+                $normalizedTitle = mb_strtolower(trim($title));
+
+                foreach ($items as $item) {
+                    if (mb_strtolower($item['name'] ?? '') === $normalizedTitle) {
+                        return (int) $item['id'];
+                    }
+                }
+
+                return (int) $items[0]['id'];
+            } catch (\Throwable) {
+                return null;
+            }
+        });
+    }
+
+    public function getGameByAppId(int $appId): ?array
+    {
+        $cacheKey = "steam_game_v2_{$appId}";
+
+        return Cache::remember($cacheKey, now()->addHours(24), function () use ($appId) {
+            try {
+                $response = Http::timeout(10)->get('https://store.steampowered.com/api/appdetails', [
+                    'appids' => $appId,
+                    'l' => 'french',
+                    'cc' => 'fr',
+                ]);
+
+                if (! $response->successful()) {
+                    return null;
+                }
+
+                $payload = $response->json((string) $appId);
+
+                if (empty($payload['success']) || empty($payload['data'])) {
+                    return null;
+                }
+
+                $data = $payload['data'];
+                $reviews = $this->fetchReviewSummary($appId);
+
+                $rawDescription = $data['detailed_description']
+                    ?? $data['about_the_game']
+                    ?? $data['short_description']
+                    ?? '';
+                $description = GameDescriptionFormatter::fromHtml($rawDescription);
+
+                $platforms = [];
+
+                if ($data['platforms']['windows'] ?? false) {
+                    $platforms[] = 'Windows';
+                }
+
+                if ($data['platforms']['mac'] ?? false) {
+                    $platforms[] = 'macOS';
+                }
+
+                if ($data['platforms']['linux'] ?? false) {
+                    $platforms[] = 'Linux';
+                }
+
+                $metacritic = $data['metacritic']['score'] ?? null;
+                $rating = $reviews['rating'] ?? 0;
+                $ratingsCount = $reviews['total_reviews'] ?? ($data['recommendations']['total'] ?? 0);
+
+                return [
+                    'source' => 'steam',
+                    'id' => $appId,
+                    'name' => $data['name'] ?? 'Unknown',
+                    'description' => $description,
+                    'released' => $data['release_date']['date'] ?? null,
+                    'background_image' => $data['header_image'] ?? null,
+                    'rating' => $rating,
+                    'ratings_count' => $ratingsCount,
+                    'metacritic' => $metacritic,
+                    'playtime' => 0,
+                    'genres' => collect($data['genres'] ?? [])->pluck('description')->filter()->values()->all(),
+                    'platforms' => $platforms,
+                    'developers' => $data['developers'] ?? [],
+                    'publishers' => $data['publishers'] ?? [],
+                    'tags' => collect($data['categories'] ?? [])->pluck('description')->take(8)->values()->all(),
+                    'screenshots' => collect($data['screenshots'] ?? [])->pluck('path_full')->filter()->values()->all(),
+                    'website' => $data['website'] ?? null,
+                ];
+            } catch (\Throwable) {
+                return null;
+            }
+        });
+    }
+
+    /**
+     * @return array{rating: float, total_reviews: int}
+     */
+    private function fetchReviewSummary(int $appId): array
+    {
+        try {
+            $response = Http::timeout(8)->get("https://store.steampowered.com/appreviews/{$appId}", [
+                'json' => 1,
+                'language' => 'all',
+                'num_per_page' => 0,
+            ]);
+
+            if (! $response->successful()) {
+                return ['rating' => 0, 'total_reviews' => 0];
+            }
+
+            $summary = $response->json('query_summary', []);
+            $reviewScore = (int) ($summary['review_score'] ?? 0);
+
+            return [
+                'rating' => $reviewScore > 0 ? round($reviewScore / 2, 1) : 0,
+                'total_reviews' => (int) ($summary['total_reviews'] ?? 0),
+            ];
+        } catch (\Throwable) {
+            return ['rating' => 0, 'total_reviews' => 0];
+        }
+    }
+}
