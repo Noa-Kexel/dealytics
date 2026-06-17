@@ -2,20 +2,8 @@
 import { router } from '@inertiajs/vue3';
 import { Flame, Heart } from 'lucide-vue-next';
 import { computed, ref, nextTick } from 'vue';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
+import GameImage from '@/components/GameImage.vue';
 import { useFavorites } from '@/composables/useFavorites';
-import {
-    getQualityPriceScore,
-    getScoreBorderColor,
-    getScoreColor,
-    getScoreLabel,
-    getSavingsScore,
-} from '@/lib/qualityPriceScore';
 
 interface GameItem {
     id: string;
@@ -63,11 +51,6 @@ const platformLabels = computed(() => {
 const discount = computed(() => Math.round(props.game.discount));
 const thumb = computed(() => props.game.image || '');
 
-const qualityPriceScore = computed(() => getQualityPriceScore(discount.value));
-const savingsScore = computed(() => getSavingsScore(discount.value));
-const scoreColor = computed(() => getScoreColor(qualityPriceScore.value));
-const scoreBorderColor = computed(() => getScoreBorderColor(qualityPriceScore.value));
-const scoreLabel = computed(() => getScoreLabel(qualityPriceScore.value));
 
 function openGame() {
     router.visit(`/game/${props.game.id}`);
@@ -101,11 +84,10 @@ async function toggleFavorite(e: Event) {
     >
         <!-- Image -->
         <div class="relative aspect-16/10 overflow-hidden bg-secondary">
-            <img
+            <GameImage
                 :src="thumb"
                 :alt="game.title"
                 class="size-full object-cover transition-transform duration-500 group-hover:scale-110"
-                loading="lazy"
             />
 
             <!-- Discount badge -->
@@ -158,47 +140,7 @@ async function toggleFavorite(e: Event) {
                     </span>
                 </div>
 
-                <div class="flex flex-col items-center gap-1">
-                    <!-- Quality/price score -->
-                    <TooltipProvider :delay-duration="200">
-                        <Tooltip>
-                            <TooltipTrigger as-child>
-                                <div
-                                    class="flex size-7 cursor-help items-center justify-center rounded-full border text-[10px] font-bold transition-transform hover:scale-110"
-                                    :class="[scoreColor, scoreBorderColor]"
-                                    @click.stop
-                                >
-                                    {{ qualityPriceScore }}
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent
-                                side="left"
-                                :side-offset="8"
-                                class="w-52 border-border/50 bg-card p-3 text-card-foreground shadow-xl"
-                            >
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-xs font-semibold" :class="scoreColor">Score qualité/prix</span>
-                                        <span class="text-xs font-bold" :class="scoreColor">{{ qualityPriceScore }}/100</span>
-                                    </div>
-                                    <p class="text-[11px] text-muted-foreground">{{ scoreLabel }}</p>
-                                    <div class="space-y-1.5">
-                                        <div class="flex items-center justify-between text-[11px]">
-                                            <span class="text-muted-foreground">Réduction</span>
-                                            <span class="font-medium">{{ discount }}%</span>
-                                        </div>
-                                        <div class="h-1 overflow-hidden rounded-full bg-secondary">
-                                            <div
-                                                class="h-full rounded-full bg-dealytics-cyan transition-all"
-                                                :style="{ width: `${savingsScore}%` }"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
+                <div class="flex items-center">
                     <!-- Favorite button -->
                     <button
                         class="flex size-8 items-center justify-center rounded-full border border-border/50 bg-secondary/50 transition-all duration-200 hover:bg-secondary active:scale-90"

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { Heart, Bell, TrendingDown, Star, ArrowUpDown, Flame, Trash2 } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { Heart, Bell, TrendingDown, Star, ArrowUpDown, Flame, Trash2, Gamepad2, ExternalLink, Link2 } from 'lucide-vue-next';
 import { ref, onMounted, computed } from 'vue';
+import GameImage from '@/components/GameImage.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -12,6 +15,7 @@ import {
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
 import type { FavoriteGame } from '@/composables/useFavorites';
+import { api } from '@/lib/api';
 
 interface EnrichedFavorite extends FavoriteGame {
     currentPrice?: number;
@@ -52,7 +56,111 @@ const avgDiscount = computed(() => {
     return Math.round(sum / discounted.length);
 });
 
+// ── Steam wishlist ──────────────────────────────────────────
+interface WishlistItem {
+    appId: number;
+    title: string;
+    image: string | null;
+    isFree: boolean;
+    price: number | null;
+    normalPrice: number | null;
+    discount: number;
+    steamPrice: number | null;
+    source: 'nexarda' | 'steam';
+    nexardaId: string | null;
+    storeUrl: string;
+}
+
+interface WishlistResponse {
+    connected: boolean;
+    available?: boolean;
+    items: WishlistItem[];
+}
+
+const steamConnected = ref(false);
+const steamInput = ref('');
+const wishlist = ref<WishlistItem[]>([]);
+const wishlistAvailable = ref(true);
+const wishlistLoading = ref(false);
+const connecting = ref(false);
+const steamError = ref('');
+
+async function loadWishlist() {
+    wishlistLoading.value = true;
+
+    try {
+        const data = await api<WishlistResponse>('/api/steam/wishlist');
+        steamConnected.value = data.connected;
+        wishlistAvailable.value = data.available ?? true;
+        wishlist.value = data.items ?? [];
+    } catch {
+        // ignore — section just stays disconnected
+    } finally {
+        wishlistLoading.value = false;
+    }
+}
+
+async function connectSteam() {
+    if (!steamInput.value.trim()) {
+        return;
+    }
+
+    connecting.value = true;
+    steamError.value = '';
+
+    try {
+        const data = await api<WishlistResponse>('/api/steam/wishlist', {
+            method: 'POST',
+            body: { steam_input: steamInput.value.trim() },
+        });
+        steamConnected.value = true;
+        wishlistAvailable.value = data.available ?? true;
+        wishlist.value = data.items ?? [];
+        steamInput.value = '';
+    } catch {
+        steamError.value = "Profil introuvable. Vérifie l'URL / le SteamID, et que ton profil et ta wishlist sont publics.";
+    } finally {
+        connecting.value = false;
+    }
+}
+
+async function disconnectSteam() {
+    await api('/api/steam/wishlist', { method: 'DELETE' });
+    steamConnected.value = false;
+    wishlist.value = [];
+    wishlistAvailable.value = true;
+}
+
+// Open our own detail page (multi-store prices). The Nexarda id is usually
+// resolved server-side; otherwise resolve by title, then fall back to Steam.
+async function openWishlistGame(item: WishlistItem) {
+    if (item.nexardaId) {
+        router.visit(`/game/${item.nexardaId}`);
+
+        return;
+    }
+
+    try {
+        const data = await api<{ games: { id: string }[] }>(
+            `/api/games?q=${encodeURIComponent(item.title)}`,
+        );
+        const first = data.games?.[0];
+
+        if (first) {
+            router.visit(`/game/${first.id}`);
+
+            return;
+        }
+    } catch {
+        // fall through to Steam store
+    }
+
+    window.open(item.storeUrl, '_blank', 'noopener');
+}
+
 onMounted(async () => {
+    loadWishlist();
+
     await loadFavorites();
     enrichedFavorites.value = rawFavorites.value.map((f) => ({
         ...f,
@@ -186,11 +294,10 @@ const sortedFavorites = computed(() => {
                 class="group border-gradient overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02]"
             >
                 <div class="relative aspect-[16/10] overflow-hidden bg-secondary">
-                    <img
+                    <GameImage
                         :src="fav.thumb"
                         :alt="fav.title"
                         class="size-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        loading="lazy"
                     />
 
                     <!-- Deal badge (based on discount) -->
@@ -261,5 +368,124 @@ const sortedFavorites = computed(() => {
                 Rechercher des jeux
             </Link>
         </div>
+
+        <!-- Steam Wishlist -->
+        <section class="mt-12">
+            <div class="mb-5 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-cyan/15">
+                        <Gamepad2 class="size-5 text-dealytics-cyan" />
+                    </div>
+                    <div>
+                        <h2 class="font-heading text-xl font-bold text-foreground">Ma wishlist Steam</h2>
+                        <p class="text-sm text-muted-foreground">Vos jeux désirés sur Steam, avec leur prix actuel</p>
+                    </div>
+                </div>
+                <button
+                    v-if="steamConnected"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-all duration-200 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300 active:scale-95"
+                    @click="disconnectSteam"
+                >
+                    <Trash2 class="size-3.5" />
+                    Déconnecter
+                </button>
+            </div>
+
+            <!-- Connect form -->
+            <div v-if="!steamConnected" class="border-gradient rounded-xl p-6">
+                <p class="mb-3 text-sm text-muted-foreground">
+                    Connecte ton profil Steam pour afficher ta liste de souhaits.
+                    Colle l'URL de ton profil ou ton SteamID (profil et wishlist publics).
+                </p>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                        v-model="steamInput"
+                        type="text"
+                        placeholder="https://steamcommunity.com/id/ton-pseudo/"
+                        class="h-10 flex-1 text-sm"
+                        @keyup.enter="connectSteam"
+                    />
+                    <Button
+                        class="h-10 gap-2 bg-dealytics-cyan text-dealytics-dark hover:bg-dealytics-cyan/90"
+                        :disabled="connecting || !steamInput.trim()"
+                        @click="connectSteam"
+                    >
+                        <div v-if="connecting" class="size-4 animate-spin rounded-full border-2 border-dealytics-dark border-t-transparent" />
+                        <Link2 v-else class="size-4" />
+                        Connecter
+                    </Button>
+                </div>
+                <p v-if="steamError" class="mt-2 text-xs text-red-400">{{ steamError }}</p>
+            </div>
+
+            <!-- Loading -->
+            <div v-else-if="wishlistLoading" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div v-for="i in 3" :key="i" class="h-24 animate-pulse rounded-xl bg-secondary/40" />
+            </div>
+
+            <!-- Private / empty -->
+            <div
+                v-else-if="!wishlistAvailable"
+                class="border-gradient rounded-xl p-6 text-center"
+            >
+                <Gamepad2 class="mx-auto mb-2 size-8 text-muted-foreground/40" />
+                <p class="text-sm text-muted-foreground">
+                    Impossible de lire cette wishlist. Vérifie qu'elle est bien
+                    <span class="font-medium text-foreground">publique</span> dans tes préférences Steam.
+                </p>
+            </div>
+            <div
+                v-else-if="wishlist.length === 0"
+                class="border-gradient rounded-xl p-6 text-center"
+            >
+                <Gamepad2 class="mx-auto mb-2 size-8 text-muted-foreground/40" />
+                <p class="text-sm text-muted-foreground">Ta wishlist Steam est vide.</p>
+            </div>
+
+            <!-- Wishlist grid -->
+            <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                    v-for="item in wishlist"
+                    :key="item.appId"
+                    class="group border-gradient flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl p-2 transition-all duration-300 hover:scale-[1.02]"
+                    @click="openWishlistGame(item)"
+                >
+                    <GameImage
+                        :src="item.image"
+                        :alt="item.title"
+                        class="h-16 w-28 shrink-0 rounded-lg object-cover"
+                    />
+                    <div class="min-w-0 flex-1">
+                        <h3 class="truncate text-sm font-semibold text-foreground">{{ item.title }}</h3>
+                        <div class="mt-1 flex items-center gap-2">
+                            <span class="text-sm font-bold text-dealytics-cyan">
+                                <template v-if="item.isFree">Gratuit</template>
+                                <template v-else-if="item.price === null">À venir</template>
+                                <template v-else>{{ item.price.toFixed(2) }}€</template>
+                            </span>
+                            <span
+                                v-if="item.discount > 0 && item.normalPrice"
+                                class="text-[11px] text-muted-foreground line-through"
+                            >
+                                {{ item.normalPrice.toFixed(2) }}€
+                            </span>
+                            <span
+                                v-if="item.discount > 0"
+                                class="rounded bg-dealytics-purple px-1.5 py-0.5 text-[10px] font-bold text-white"
+                            >
+                                -{{ item.discount }}%
+                            </span>
+                        </div>
+                        <p
+                            v-if="item.price !== null && !item.isFree"
+                            class="mt-0.5 text-[10px] text-muted-foreground/70"
+                        >
+                            {{ item.source === 'nexarda' ? 'Meilleur prix multi-magasins' : 'Prix Steam' }}
+                        </p>
+                    </div>
+                    <ExternalLink class="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-dealytics-cyan" />
+                </div>
+            </div>
+        </section>
     </div>
 </template>

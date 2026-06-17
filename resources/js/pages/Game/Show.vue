@@ -7,6 +7,7 @@ import {
     Bell,
     Star,
     Store,
+    Flame,
     Calendar,
     Gamepad2,
     Monitor,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import DealBadge from '@/components/DealBadge.vue';
+import GameImage from '@/components/GameImage.vue';
 import PriceHistoryChart from '@/components/PriceHistoryChart.vue';
 import StorePriceChart from '@/components/StorePriceChart.vue';
 import { Button } from '@/components/ui/button';
@@ -37,7 +39,7 @@ import { useFavorites } from '@/composables/useFavorites';
 import {
     getQualityPriceScore,
     getQualityValue,
-    getSavingsScore,
+    getPriceValue,
     getScoreBorderColor,
     getScoreColor,
     getScoreLabel,
@@ -108,9 +110,50 @@ const loading = ref(true);
 const alertPrice = ref('');
 const alertSet = ref(false);
 
-// Real price history (snapshots stored in DB, one per day).
+// Real price history — from ITAD (full series) or our daily snapshots.
 const priceHistory = ref<PricePoint[]>([]);
+const historySource = ref<string | null>(null);
 const hasHistory = computed(() => priceHistory.value.length >= 2);
+
+// Lowest price observed over our tracking window (snapshots + current price).
+const lowestPoint = computed(() => {
+    if (!priceHistory.value.length) {
+        return null;
+    }
+
+    return priceHistory.value.reduce((min, p) => (p.price < min.price ? p : min));
+});
+const lowestEver = computed(() => {
+    const fromHistory = lowestPoint.value?.price ?? Infinity;
+
+    return Math.min(fromHistory, currentPrice.value || Infinity);
+});
+const lowestEverDate = computed(() => {
+    if (!lowestPoint.value) {
+        return null;
+    }
+
+    return new Date(lowestPoint.value.date * 1000).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+});
+const priceWindow = computed(() => {
+    const prices = priceHistory.value.map((p) => p.price);
+
+    return prices.length
+        ? { min: Math.min(...prices), max: Math.max(...prices) }
+        : { min: 0, max: 0 };
+});
+// Only celebrate "at the lowest" when the price has actually moved down to it,
+// not when it has simply been flat the whole tracking window.
+const isAtLowest = computed(
+    () =>
+        hasHistory.value &&
+        priceWindow.value.max > priceWindow.value.min &&
+        currentPrice.value <= lowestEver.value * 1.02,
+);
 
 // RAWG enrichment
 const rawg = ref<RawgData | null>(null);
@@ -231,10 +274,16 @@ const hasQualityData = computed(() =>
 const qualityValue = computed(() =>
     getQualityValue(rawg.value?.metacritic, rawg.value?.rating),
 );
-const savingsScore = computed(() => getSavingsScore(savingsPercent.value));
+// Original (no-promo) price = the highest current offer across stores, i.e.
+// a store still selling at full price. Falls back to the discount-derived
+// normal price. This drives the price-value component of the score.
+const originalPrice = computed(() =>
+    Math.max(nexarda.value?.highest ?? 0, normalPrice.value),
+);
+const priceValue = computed(() => getPriceValue(currentPrice.value, originalPrice.value));
 const qualityPriceScore = computed(() =>
     getQualityPriceScore(
-        savingsPercent.value,
+        priceValue.value,
         rawg.value?.metacritic,
         rawg.value?.rating,
     ),
@@ -261,12 +310,31 @@ async function toggleFavorite() {
 }
 
 // Alert logic
+const alertError = ref('');
+
 async function setAlertPrice() {
-    if (!alertPrice.value) {
+    const value = parseFloat(alertPrice.value);
+
+    if (!alertPrice.value || Number.isNaN(value)) {
+        alertError.value = 'Entre un prix valide.';
+
         return;
     }
 
-    await addAlert(gameId, title.value, parseFloat(alertPrice.value));
+    if (value <= 0) {
+        alertError.value = 'Le prix doit être supérieur à 0.';
+
+        return;
+    }
+
+    if (value > 1000) {
+        alertError.value = 'Prix trop élevé (max 1000€).';
+
+        return;
+    }
+
+    alertError.value = '';
+    await addAlert(gameId, title.value, Math.round(value * 100) / 100);
     alertSet.value = true;
 }
 
@@ -274,6 +342,7 @@ function clearAlert() {
     removeAlert(gameId);
     alertSet.value = false;
     alertPrice.value = '';
+    alertError.value = '';
 }
 
 // RAWG screenshot navigation
@@ -325,12 +394,16 @@ onMounted(async () => {
             nexarda.value = await response.json();
         }
 
-        // Real price history (built from daily snapshots)
+        // Real price history — ITAD (full series) with snapshot fallback.
         try {
-            const historyResponse = await fetch(`/api/games/${gameId}/history`);
+            const titleParam = encodeURIComponent(nexarda.value?.game.name ?? '');
+            const historyResponse = await fetch(
+                `/api/games/${gameId}/history?title=${titleParam}`,
+            );
 
             if (historyResponse.ok) {
-                const { history } = await historyResponse.json();
+                const { history, source } = await historyResponse.json();
+                historySource.value = source ?? null;
                 priceHistory.value = (history ?? []).map(
                     (p: { date: number; price: number }) => ({
                         date: p.date,
@@ -398,7 +471,7 @@ onMounted(async () => {
             <!-- Hero image + title -->
             <div class="relative mb-8 overflow-hidden rounded-2xl border-gradient-strong">
                 <div class="relative aspect-[21/9] overflow-hidden">
-                    <img
+                    <GameImage
                         :src="heroImage"
                         :alt="title"
                         class="size-full object-cover"
@@ -434,7 +507,7 @@ onMounted(async () => {
                             <!-- Deal Badge -->
                             <DealBadge
                                 :current-price="currentPrice"
-                                :lowest-price="currentPrice"
+                                :lowest-price="lowestEver"
                                 :normal-price="normalPrice"
                                 :savings="savingsPercent"
                             />
@@ -580,11 +653,17 @@ onMounted(async () => {
                         </div>
                     </div>
 
-                    <!-- Price history (real daily snapshots) -->
+                    <!-- Price history (ITAD full series, or daily snapshots) -->
                     <div class="border-gradient rounded-xl p-6">
-                        <div class="mb-4 flex items-center gap-2">
-                            <TrendingDown class="size-4 text-dealytics-cyan" />
-                            <h2 class="font-heading text-lg font-semibold">Historique des prix</h2>
+                        <div class="mb-4 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <TrendingDown class="size-4 text-dealytics-cyan" />
+                                <h2 class="font-heading text-lg font-semibold">Historique des prix</h2>
+                            </div>
+                            <div v-if="hasHistory && historySource === 'itad'" class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <span>via</span>
+                                <span class="font-medium text-dealytics-cyan">IsThereAnyDeal</span>
+                            </div>
                         </div>
 
                         <PriceHistoryChart
@@ -602,6 +681,40 @@ onMounted(async () => {
                                 Revenez bientôt pour suivre l'évolution du prix de ce jeu.
                             </p>
                         </div>
+
+                        <!-- Real history stats -->
+                        <div v-if="priceHistory.length > 0" class="mt-4 grid grid-cols-3 gap-3">
+                            <div class="rounded-lg bg-secondary/50 p-3 text-center">
+                                <Tag class="mx-auto mb-1 size-4 text-dealytics-cyan" />
+                                <div class="text-sm font-semibold text-dealytics-cyan">
+                                    {{ lowestEver.toFixed(2) }}{{ currencySymbol }}
+                                </div>
+                                <div class="text-[10px] text-muted-foreground">Prix le plus bas</div>
+                            </div>
+                            <div class="rounded-lg bg-secondary/50 p-3 text-center">
+                                <Calendar class="mx-auto mb-1 size-4 text-dealytics-purple" />
+                                <div class="text-xs font-semibold text-dealytics-purple">
+                                    {{ lowestEverDate ?? '—' }}
+                                </div>
+                                <div class="text-[10px] text-muted-foreground">Date du minimum</div>
+                            </div>
+                            <div class="rounded-lg bg-secondary/50 p-3 text-center">
+                                <TrendingDown class="mx-auto mb-1 size-4 text-foreground" />
+                                <div class="text-sm font-semibold text-foreground">
+                                    {{ currentPrice.toFixed(2) }}{{ currencySymbol }}
+                                </div>
+                                <div class="text-[10px] text-muted-foreground">Prix actuel</div>
+                            </div>
+                        </div>
+
+                        <!-- At-lowest highlight -->
+                        <p
+                            v-if="isAtLowest"
+                            class="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-medium text-dealytics-pink"
+                        >
+                            <Flame class="size-3.5" />
+                            Le prix actuel est au plus bas observé depuis le début du suivi.
+                        </p>
                     </div>
 
                     <!-- Price comparison chart (real per-store prices) -->
@@ -844,23 +957,29 @@ onMounted(async () => {
                             </button>
                         </div>
 
-                        <div v-else class="flex gap-2">
-                            <Input
-                                v-model="alertPrice"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Prix cible (€)"
-                                class="h-9 text-sm"
-                            />
-                            <Button
-                                size="sm"
-                                class="shrink-0 bg-dealytics-purple hover:bg-dealytics-deep-purple"
-                                :disabled="!alertPrice"
-                                @click="setAlertPrice"
-                            >
-                                <Bell class="size-3.5" />
-                            </Button>
+                        <div v-else>
+                            <div class="flex gap-2">
+                                <Input
+                                    v-model="alertPrice"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="1000"
+                                    placeholder="Prix cible (€)"
+                                    class="h-9 text-sm"
+                                    @keyup.enter="setAlertPrice"
+                                    @input="alertError = ''"
+                                />
+                                <Button
+                                    size="sm"
+                                    class="shrink-0 bg-dealytics-purple hover:bg-dealytics-deep-purple"
+                                    :disabled="!alertPrice"
+                                    @click="setAlertPrice"
+                                >
+                                    <Bell class="size-3.5" />
+                                </Button>
+                            </div>
+                            <p v-if="alertError" class="mt-2 text-xs text-red-400">{{ alertError }}</p>
                         </div>
                     </div>
 
@@ -965,12 +1084,15 @@ onMounted(async () => {
                                                             <div class="h-full rounded-full bg-dealytics-pink transition-all" :style="{ width: `${qualityValue}%` }" />
                                                         </div>
                                                         <div class="flex items-center justify-between text-[11px]">
-                                                            <span class="text-muted-foreground">Réduction</span>
-                                                            <span class="font-medium">{{ savingsPercent }}%</span>
+                                                            <span class="text-muted-foreground">Prix</span>
+                                                            <span class="font-medium">{{ priceValue }}/100</span>
                                                         </div>
                                                         <div class="h-1 overflow-hidden rounded-full bg-secondary">
-                                                            <div class="h-full rounded-full bg-dealytics-cyan transition-all" :style="{ width: `${savingsScore}%` }" />
+                                                            <div class="h-full rounded-full bg-dealytics-cyan transition-all" :style="{ width: `${priceValue}%` }" />
                                                         </div>
+                                                        <p class="text-[10px] text-muted-foreground/70">
+                                                            {{ currentPrice.toFixed(2) }}{{ currencySymbol }} vs {{ originalPrice.toFixed(2) }}{{ currencySymbol }} plein tarif
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </TooltipContent>

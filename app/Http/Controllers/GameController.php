@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PriceSnapshot;
+use App\Services\ItadService;
 use App\Services\NexardaService;
 use App\Services\RawgService;
 use App\Services\SteamStoreService;
@@ -44,8 +45,24 @@ class GameController extends Controller
         return response()->json($data);
     }
 
-    public function history(int $id): JsonResponse
+    public function history(int $id, Request $request, ItadService $itad): JsonResponse
     {
+        // Prefer IsThereAnyDeal's real historical series when available.
+        $title = trim((string) $request->query('title', ''));
+        $steamAppId = $request->query('steamAppId');
+
+        if ($title !== '') {
+            $itadHistory = $itad->getPriceHistoryForGame(
+                $title,
+                $steamAppId ? (string) $steamAppId : null,
+            );
+
+            if (! empty($itadHistory)) {
+                return response()->json(['history' => $itadHistory, 'source' => 'itad']);
+            }
+        }
+
+        // Fallback: our own daily snapshots (builds up over time, no API key).
         $snapshots = PriceSnapshot::where('game_id', (string) $id)
             ->orderBy('captured_on')
             ->get(['price', 'discount', 'captured_on'])
@@ -55,7 +72,7 @@ class GameController extends Controller
                 'discount' => (int) $s->discount,
             ]);
 
-        return response()->json(['history' => $snapshots]);
+        return response()->json(['history' => $snapshots, 'source' => 'snapshots']);
     }
 
     public function rawg(string $title, RawgService $rawg, SteamStoreService $steam): JsonResponse

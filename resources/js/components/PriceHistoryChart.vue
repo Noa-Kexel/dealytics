@@ -36,8 +36,8 @@ const chartData = computed(() => {
     return {
         labels: sorted.map((p) =>
             new Date(p.date * 1000).toLocaleDateString('fr-FR', {
-                day: 'numeric',
                 month: 'short',
+                year: '2-digit',
             }),
         ),
         datasets: [
@@ -47,11 +47,12 @@ const chartData = computed(() => {
                 borderColor: '#A855F7',
                 backgroundColor: 'rgba(168, 85, 247, 0.1)',
                 fill: true,
-                tension: 0.4,
+                tension: 0.3,
+                stepped: sorted.length > 30 ? ('before' as const) : false,
                 pointBackgroundColor: '#A855F7',
                 pointBorderColor: '#A855F7',
-                pointRadius: 3,
-                pointHoverRadius: 6,
+                pointRadius: sorted.length > 30 ? 0 : 3,
+                pointHoverRadius: 5,
                 borderWidth: 2,
             },
             {
@@ -96,6 +97,8 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
             ticks: {
                 color: 'rgba(255,255,255,0.4)',
                 font: { size: 10 },
+                maxTicksLimit: 8,
+                autoSkip: true,
             },
         },
         y: {

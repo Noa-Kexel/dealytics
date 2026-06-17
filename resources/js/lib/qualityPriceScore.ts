@@ -22,19 +22,27 @@ export function getQualityValue(
     return NEUTRAL_QUALITY;
 }
 
-export function getSavingsScore(discount: number): number {
-    return Math.min(Math.round(discount * 1.5), 100);
+/**
+ * Price value (0-100): how good the current best price is, positioned between
+ * the original (no-promo) price and free. Computed from real prices, not the
+ * API discount field. Current = original → 0 ; current = free → 100.
+ */
+export function getPriceValue(currentPrice: number, originalPrice: number): number {
+    if (originalPrice <= 0 || currentPrice >= originalPrice) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(Math.round(((originalPrice - currentPrice) / originalPrice) * 100), 100));
 }
 
 export function getQualityPriceScore(
-    discount: number,
+    priceValue: number,
     metacritic?: number | null,
     rating?: number | null,
 ): number {
     const quality = getQualityValue(metacritic, rating);
-    const savings = getSavingsScore(discount);
 
-    return Math.round(quality * 0.6 + savings * 0.4);
+    return Math.round(quality * 0.5 + priceValue * 0.5);
 }
 
 export function getScoreColor(score: number): string {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Search,
     SlidersHorizontal,
@@ -12,11 +12,14 @@ import {
     Store,
     Star,
     ArrowRight,
+    PlugZap,
+    RefreshCw,
 } from 'lucide-vue-next';
-import { onMounted } from 'vue';
+import { onMounted, onBeforeUnmount } from 'vue';
 import { ref, computed } from 'vue';
 import GameCard from '@/components/GameCard.vue';
 import GameCardSkeleton from '@/components/GameCardSkeleton.vue';
+import GameImage from '@/components/GameImage.vue';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -82,6 +85,7 @@ const games = ref<GameItem[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
 const hasSearched = ref(false);
+const loadError = ref(false);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const selectedPlatform = ref<string>('all');
@@ -159,12 +163,17 @@ async function fetchGames(page: number): Promise<GamesResponse> {
 
     const response = await fetch(`/api/games?${params.toString()}`);
 
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+
     return response.json();
 }
 
 async function loadGames() {
     loading.value = true;
     hasSearched.value = true;
+    loadError.value = false;
     currentPage.value = 1;
 
     try {
@@ -174,6 +183,7 @@ async function loadGames() {
     } catch {
         games.value = [];
         totalPages.value = 1;
+        loadError.value = true;
     } finally {
         loading.value = false;
     }
@@ -198,16 +208,78 @@ async function loadMore() {
     }
 }
 
+// ── Autocomplete ────────────────────────────────────────────
+// Suggestions reuse the games already fetched — no extra request.
+const showSuggestions = ref(false);
+const activeSuggestion = ref(-1);
+const searchContainer = ref<HTMLElement | null>(null);
+
+const suggestions = computed(() => displayedGames.value.slice(0, 6));
+
 // Debounced search (re-queries the API by title)
 function onSearchInput() {
+    showSuggestions.value = searchQuery.value.trim().length > 0;
+    activeSuggestion.value = -1;
+
     if (debounceTimer.value) {
         clearTimeout(debounceTimer.value);
     }
 
     debounceTimer.value = setTimeout(() => {
         loadGames();
-    }, 400);
+    }, 350);
 }
+
+function selectSuggestion(game: GameItem) {
+    closeSuggestions();
+    router.visit(`/game/${game.id}`);
+}
+
+function onSearchEnter() {
+    const active = suggestions.value[activeSuggestion.value];
+
+    if (showSuggestions.value && active) {
+        selectSuggestion(active);
+
+        return;
+    }
+
+    if (debounceTimer.value) {
+        clearTimeout(debounceTimer.value);
+    }
+
+    closeSuggestions();
+    loadGames();
+}
+
+function moveActive(delta: number) {
+    if (!showSuggestions.value || suggestions.value.length === 0) {
+        return;
+    }
+
+    const count = suggestions.value.length;
+    activeSuggestion.value = (activeSuggestion.value + delta + count) % count;
+}
+
+function closeSuggestions() {
+    showSuggestions.value = false;
+    activeSuggestion.value = -1;
+}
+
+function onSearchFocus() {
+    if (searchQuery.value.trim() && suggestions.value.length > 0) {
+        showSuggestions.value = true;
+    }
+}
+
+function onDocumentMousedown(event: MouseEvent) {
+    if (searchContainer.value && !searchContainer.value.contains(event.target as Node)) {
+        closeSuggestions();
+    }
+}
+
+onMounted(() => document.addEventListener('mousedown', onDocumentMousedown));
+onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMousedown));
 
 // Sort/filter changes are purely client-side — no refetch needed.
 </script>
@@ -300,7 +372,7 @@ function onSearchInput() {
         </div>
 
         <!-- Search Bar -->
-        <div class="relative mb-4">
+        <div ref="searchContainer" class="relative mb-4">
             <div
                 class="border-gradient flex items-center gap-3 rounded-xl px-4 py-3"
             >
@@ -310,8 +382,51 @@ function onSearchInput() {
                     type="text"
                     placeholder="Rechercher des jeux... (ex: Cyberpunk, Elden Ring)"
                     class="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    role="combobox"
+                    :aria-expanded="showSuggestions"
+                    aria-autocomplete="list"
+                    autocomplete="off"
                     @input="onSearchInput"
+                    @focus="onSearchFocus"
+                    @keydown.down.prevent="moveActive(1)"
+                    @keydown.up.prevent="moveActive(-1)"
+                    @keydown.enter.prevent="onSearchEnter"
+                    @keydown.esc="closeSuggestions"
                 />
+            </div>
+
+            <!-- Suggestions dropdown -->
+            <div
+                v-if="showSuggestions && suggestions.length > 0"
+                class="absolute top-full right-0 left-0 z-50 mt-2 overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl"
+            >
+                <button
+                    v-for="(game, index) in suggestions"
+                    :key="game.id"
+                    type="button"
+                    class="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors"
+                    :class="index === activeSuggestion ? 'bg-dealytics-purple/15' : 'hover:bg-secondary/60'"
+                    @mouseenter="activeSuggestion = index"
+                    @click="selectSuggestion(game)"
+                >
+                    <GameImage
+                        :src="game.image"
+                        :alt="game.title"
+                        class="h-9 w-16 shrink-0 rounded-md object-cover"
+                    />
+                    <span class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {{ game.title }}
+                    </span>
+                    <span class="shrink-0 text-sm font-bold text-dealytics-cyan">
+                        {{ game.price !== null ? `${game.price.toFixed(2)}€` : '' }}
+                    </span>
+                    <span
+                        v-if="game.discount > 0"
+                        class="shrink-0 rounded bg-dealytics-purple px-1.5 py-0.5 text-[10px] font-bold text-white"
+                    >
+                        -{{ Math.round(game.discount) }}%
+                    </span>
+                </button>
             </div>
         </div>
 
@@ -414,6 +529,29 @@ function onSearchInput() {
             />
         </div>
 
+        <!-- Error state -->
+        <div
+            v-else-if="loadError"
+            class="flex flex-col items-center justify-center py-20 text-center"
+        >
+            <PlugZap class="mb-4 size-16 text-muted-foreground/30" />
+            <h3 class="font-heading text-lg font-semibold text-foreground">
+                Impossible de charger les jeux
+            </h3>
+            <p class="mt-1 max-w-sm text-sm text-muted-foreground">
+                Le service de prix est momentanément indisponible. Vérifie ta
+                connexion ou réessaie dans un instant.
+            </p>
+            <Button
+                variant="outline"
+                class="mt-4 gap-2 rounded-xl border-dealytics-purple/50 text-dealytics-purple hover:bg-dealytics-purple/10"
+                @click="loadGames"
+            >
+                <RefreshCw class="size-4" />
+                Réessayer
+            </Button>
+        </div>
+
         <!-- Load More -->
         <div v-if="hasMore && !loading && displayedGames.length > 0" class="mt-8 flex justify-center">
             <Button
@@ -441,7 +579,7 @@ function onSearchInput() {
         </div>
 
         <div
-            v-else-if="hasSearched && !loading && displayedGames.length === 0"
+            v-else-if="hasSearched && !loading && !loadError && displayedGames.length === 0"
             class="flex flex-col items-center justify-center py-20 text-center"
         >
             <Gamepad2 class="mb-4 size-16 text-muted-foreground/30" />

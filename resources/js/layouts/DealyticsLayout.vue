@@ -8,6 +8,7 @@ import {
     Twitter,
     Instagram,
     Link2,
+    LogIn,
 } from 'lucide-vue-next';
 import type { LucideIcon } from 'lucide-vue-next';
 import { computed, onMounted } from 'vue';
@@ -157,8 +158,9 @@ onMounted(async () => {
                     <Link
                         v-else
                         href="/login"
-                        class="text-sm font-medium text-muted-foreground hover:text-foreground"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-dealytics-purple/50 bg-dealytics-purple/10 px-4 py-2 text-sm font-medium text-dealytics-purple transition-all duration-200 hover:border-dealytics-purple/70 hover:bg-dealytics-purple/20 hover:text-foreground active:scale-95"
                     >
+                        <LogIn class="size-4" />
                         Connexion
                     </Link>
 

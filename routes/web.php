@@ -6,6 +6,7 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceAlertController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\SteamWishlistController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -44,6 +45,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // API — Budget
     Route::get('api/budget', [BudgetController::class, 'show']);
     Route::put('api/budget', [BudgetController::class, 'update']);
+
+    // API — Steam wishlist
+    Route::get('api/steam/wishlist', [SteamWishlistController::class, 'show']);
+    Route::post('api/steam/wishlist', [SteamWishlistController::class, 'store']);
+    Route::delete('api/steam/wishlist', [SteamWishlistController::class, 'destroy']);
 });
 
 Route::get('game/{id}', [GameController::class, 'show'])->name('game.show');
