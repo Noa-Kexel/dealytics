@@ -115,6 +115,121 @@ const priceHistory = ref<PricePoint[]>([]);
 const historySource = ref<string | null>(null);
 const hasHistory = computed(() => priceHistory.value.length >= 2);
 
+// Time-range selector. Each range crops the series to its window; ranges wider
+// than the available data are hidden so we never show two identical filters.
+const HISTORY_RANGES = [
+    { key: '1m', label: '1 mois', days: 31 },
+    { key: '3m', label: '3 mois', days: 92 },
+    { key: '1y', label: '1 an', days: 366 },
+    { key: 'all', label: 'Tout', days: Infinity },
+] as const;
+
+type RangeKey = (typeof HISTORY_RANGES)[number]['key'];
+const historyRange = ref<RangeKey>('1y');
+
+const dataSpanDays = computed(() => {
+    const h = priceHistory.value;
+
+    if (h.length < 2) {
+        return 0;
+    }
+
+    const sorted = [...h].sort((a, b) => a.date - b.date);
+
+    return (sorted[sorted.length - 1].date - sorted[0].date) / 86400;
+});
+
+// Only offer ranges that actually crop the data (always keep "Tout").
+const availableRanges = computed(() =>
+    HISTORY_RANGES.filter((r) => r.days === Infinity || r.days < dataSpanDays.value),
+);
+
+// Default to "1 an" when the data spans that far, else the widest range.
+const preferredRange = computed<RangeKey>(() =>
+    availableRanges.value.some((r) => r.key === '1y') ? '1y' : 'all',
+);
+
+const userPickedRange = ref(false);
+
+function selectRange(key: RangeKey) {
+    userPickedRange.value = true;
+    historyRange.value = key;
+}
+
+// Keep the active range sensible as data loads: honor the user's choice once
+// made (clamping it if it becomes unavailable), otherwise track the default.
+watch(
+    [availableRanges, preferredRange],
+    () => {
+        const valid = availableRanges.value.some((r) => r.key === historyRange.value);
+
+        if (!userPickedRange.value || !valid) {
+            historyRange.value = preferredRange.value;
+        }
+    },
+    { immediate: true },
+);
+
+// Collapse runs of identical prices into their step boundaries. The series is a
+// step function (a price holds until the next change), so this is lossless for
+// the chart while removing daily-snapshot noise and keeping every edge on a
+// real date — the line stays faithful across every time range.
+function compressSteps(points: PricePoint[]): PricePoint[] {
+    if (points.length <= 2) {
+        return points;
+    }
+
+    const out: PricePoint[] = [points[0]];
+
+    for (let i = 1; i < points.length - 1; i++) {
+        if (points[i].price !== out[out.length - 1].price) {
+            out.push(points[i]);
+        }
+    }
+
+    out.push(points[points.length - 1]);
+
+    return out;
+}
+
+const visibleHistory = computed(() => {
+    const all = [...priceHistory.value].sort((a, b) => a.date - b.date);
+
+    if (all.length === 0) {
+        return [];
+    }
+
+    const now = Date.now() / 1000;
+    const days = HISTORY_RANGES.find((r) => r.key === historyRange.value)?.days ?? Infinity;
+    let points = all;
+
+    if (days !== Infinity) {
+        const cutoff = now - days * 86400;
+        const inRange = all.filter((p) => p.date >= cutoff);
+        const before = all.filter((p) => p.date < cutoff).at(-1);
+
+        points = [];
+
+        // Anchor the line at the window start with the price then in effect.
+        if (before) {
+            points.push({ date: cutoff, price: before.price, store: before.store });
+        }
+
+        points.push(...inRange);
+    }
+
+    // Extend the line to "now". Use the live current price as the latest truth
+    // so the chart's endpoint matches the headline price shown on the page.
+    const last = points.at(-1);
+    const endPrice = currentPrice.value > 0 ? currentPrice.value : last?.price;
+
+    if (last && endPrice !== undefined) {
+        points = [...points, { date: now, price: endPrice, store: 'Maintenant' }];
+    }
+
+    return compressSteps(points);
+});
+
 // Lowest price observed over our tracking window (snapshots + current price).
 const lowestPoint = computed(() => {
     if (!priceHistory.value.length) {
@@ -666,11 +781,28 @@ onMounted(async () => {
                             </div>
                         </div>
 
+                        <!-- Range selector -->
+                        <div v-if="hasHistory && availableRanges.length > 1" class="mb-4 flex flex-wrap gap-1.5">
+                            <button
+                                v-for="r in availableRanges"
+                                :key="r.key"
+                                type="button"
+                                class="rounded-lg px-3 py-1 text-xs font-medium transition-colors"
+                                :class="historyRange === r.key
+                                    ? 'bg-dealytics-cyan/15 text-dealytics-cyan'
+                                    : 'bg-secondary/60 text-muted-foreground hover:text-foreground'"
+                                @click="selectRange(r.key)"
+                            >
+                                {{ r.label }}
+                            </button>
+                        </div>
+
                         <PriceHistoryChart
                             v-if="hasHistory"
-                            :price-history="priceHistory"
+                            :price-history="visibleHistory"
                             :current-price="currentPrice"
                             :currency-symbol="currencySymbol"
+                            :range-key="historyRange"
                         />
                         <div v-else class="flex flex-col items-center justify-center py-10 text-center">
                             <CalendarClock class="mb-3 size-10 text-muted-foreground/30" />
