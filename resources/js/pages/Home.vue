@@ -105,8 +105,8 @@ onMounted(() => {
 
 // Client-side sort + filter over the fetched pages (Nexarda's API ignores
 // sort/filter params, so we apply them here).
-const displayedGames = computed(() => {
-    let list = games.value.filter((g) => g.price !== null);
+function filterAndSort(source: GameItem[]): GameItem[] {
+    let list = source.filter((g) => g.price !== null);
 
     if (selectedPlatform.value !== 'all') {
         list = list.filter((g) => g.platforms.includes(selectedPlatform.value));
@@ -137,7 +137,9 @@ const displayedGames = computed(() => {
     }
 
     return sorted;
-});
+}
+
+const displayedGames = computed(() => filterAndSort(games.value));
 
 const hasMore = computed(() => currentPage.value < totalPages.value);
 
@@ -210,14 +212,41 @@ async function loadMore() {
 }
 
 // ── Autocomplete ────────────────────────────────────────────
-// Suggestions reuse the games already fetched — no extra request.
+// The dropdown updates live as the user types (its own lightweight fetch),
+// while the background grid only refreshes on Enter — see onSearchEnter.
 const showSuggestions = ref(false);
 const activeSuggestion = ref(-1);
 const searchContainer = ref<HTMLElement | null>(null);
+const suggestionResults = ref<GameItem[]>([]);
+let suggestionSeq = 0;
 
-const suggestions = computed(() => displayedGames.value.slice(0, 6));
+const suggestions = computed(() => filterAndSort(suggestionResults.value).slice(0, 6));
 
-// Debounced search (re-queries the API by title)
+// Fetches suggestions only — leaves the background grid (games.value) untouched.
+async function fetchSuggestions() {
+    if (!searchQuery.value.trim()) {
+        suggestionResults.value = [];
+
+        return;
+    }
+
+    const seq = ++suggestionSeq;
+
+    try {
+        const data = await fetchGames(1);
+
+        // Ignore out-of-order responses from earlier keystrokes.
+        if (seq === suggestionSeq) {
+            suggestionResults.value = data.games;
+        }
+    } catch {
+        if (seq === suggestionSeq) {
+            suggestionResults.value = [];
+        }
+    }
+}
+
+// Debounced: only refreshes the dropdown while typing.
 function onSearchInput() {
     showSuggestions.value = searchQuery.value.trim().length > 0;
     activeSuggestion.value = -1;
@@ -227,7 +256,7 @@ function onSearchInput() {
     }
 
     debounceTimer.value = setTimeout(() => {
-        loadGames();
+        fetchSuggestions();
     }, 350);
 }
 
@@ -545,7 +574,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
             </p>
             <Button
                 variant="outline"
-                class="mt-4 gap-2 rounded-xl border-dealytics-purple/50 text-dealytics-purple hover:bg-dealytics-purple/10"
+                class="mt-4 gap-2 rounded-xl border-dealytics-purple/50 text-dealytics-purple hover:bg-dealytics-purple/10 hover:text-dealytics-purple"
                 @click="loadGames"
             >
                 <RefreshCw class="size-4" />
@@ -557,7 +586,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         <div v-if="hasMore && !loading && displayedGames.length > 0" class="mt-8 flex justify-center">
             <Button
                 variant="outline"
-                class="gap-2 rounded-xl border-dealytics-purple/50 px-8 text-dealytics-purple hover:bg-dealytics-purple/10"
+                class="gap-2 rounded-xl border-dealytics-purple/50 px-8 text-dealytics-purple hover:bg-dealytics-purple/10 hover:text-dealytics-purple"
                 :disabled="loadingMore"
                 @click="loadMore"
             >
