@@ -36,7 +36,7 @@ defineExpose({ show });
 
 <template>
     <Teleport v-if="mounted" to="body">
-        <div class="pointer-events-none fixed right-4 bottom-4 z-[100] flex flex-col gap-2">
+        <div class="pointer-events-none fixed right-4 bottom-4 z-100 flex flex-col gap-2">
             <div
                 v-for="toast in toasts"
                 :key="toast.gameId"

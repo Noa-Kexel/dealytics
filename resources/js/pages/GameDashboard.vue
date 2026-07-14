@@ -43,6 +43,7 @@ import { useAlerts } from '@/composables/useAlerts';
 import { useBudget  } from '@/composables/useBudget';
 import type {Purchase} from '@/composables/useBudget';
 import { useFavorites } from '@/composables/useFavorites';
+import { vReveal } from '@/directives/reveal';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
@@ -252,7 +253,7 @@ onMounted(async () => {
         </div>
 
         <!-- Stats Cards -->
-        <div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div v-reveal="{ y: 16 }" class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
             <div class="border-gradient rounded-xl p-4">
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-purple/20">
                     <Star class="size-4 text-dealytics-purple" />
@@ -290,7 +291,7 @@ onMounted(async () => {
         </div>
 
         <!-- Budget + Spending Chart -->
-        <div class="mb-6 grid gap-4 lg:grid-cols-2">
+        <div v-reveal class="mb-6 grid gap-4 lg:grid-cols-2">
             <!-- Monthly Budget -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center justify-between">
@@ -478,7 +479,7 @@ onMounted(async () => {
         </div>
 
         <!-- Alerts + Top Deals -->
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div v-reveal class="grid gap-4 lg:grid-cols-2">
             <!-- Active Alerts -->
             <div id="price-alerts" class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">

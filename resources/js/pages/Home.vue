@@ -29,6 +29,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFavorites } from '@/composables/useFavorites';
+import { vReveal } from '@/directives/reveal';
 
 interface GameItem {
     id: string;
@@ -306,7 +307,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 <img
                     src="/images/hero.png"
                     alt="Gamer avec casque et setup gaming"
-                    class="hero-image-fade h-full w-full object-contain object-right object-bottom"
+                    class="hero-image-fade h-full w-full object-contain object-right"
                     loading="eager"
                 />
             </div>
@@ -597,7 +598,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
         <!-- Why Dealytics -->
         <section class="mt-16">
-            <div class="text-center">
+            <div v-reveal class="text-center">
                 <h2 class="font-heading text-2xl font-bold text-foreground md:text-3xl">
                     Pourquoi choisir Dealytics ?
                 </h2>
@@ -608,8 +609,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
             <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div
-                    v-for="feature in features"
+                    v-for="(feature, index) in features"
                     :key="feature.title"
+                    v-reveal="{ delay: index * 90 }"
                     class="group rounded-2xl border border-border/50 bg-secondary/30 p-6 text-center transition-all duration-300 hover:border-dealytics-purple/40 hover:bg-secondary/50"
                 >
                     <div
@@ -629,6 +631,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
         <!-- CTA -->
         <section
+            v-reveal
             class="border-gradient-strong relative mt-12 overflow-hidden rounded-2xl p-8 text-center md:p-12"
         >
             <div

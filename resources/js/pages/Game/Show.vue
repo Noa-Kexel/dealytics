@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
+import { vReveal } from '@/directives/reveal';
 import {
     getQualityPriceScore,
     getQualityValue,
@@ -660,7 +661,7 @@ onMounted(async () => {
                             <div class="h-3 w-4/6 animate-pulse rounded bg-secondary" />
                         </div>
                     </div>
-                    <div v-else-if="rawg?.description" class="border-gradient rounded-xl p-6">
+                    <div v-else-if="rawg?.description" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-3 flex items-center gap-2">
                             <Gamepad2 class="size-4 text-dealytics-purple" />
                             <h2 class="font-heading text-lg font-semibold">À propos</h2>
@@ -722,7 +723,7 @@ onMounted(async () => {
                         <div class="mb-3 h-5 w-32 animate-pulse rounded bg-secondary" />
                         <div class="aspect-video w-full animate-pulse rounded-lg bg-secondary" />
                     </div>
-                    <div v-else-if="rawg?.screenshots?.length" class="border-gradient rounded-xl p-6">
+                    <div v-else-if="rawg?.screenshots?.length" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-3 flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <ImageIcon class="size-4 text-dealytics-cyan" />
@@ -769,7 +770,7 @@ onMounted(async () => {
                     </div>
 
                     <!-- Price history (ITAD full series, or daily snapshots) -->
-                    <div class="border-gradient rounded-xl p-6">
+                    <div v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <TrendingDown class="size-4 text-dealytics-cyan" />
@@ -850,7 +851,7 @@ onMounted(async () => {
                     </div>
 
                     <!-- Price comparison chart (real per-store prices) -->
-                    <div v-if="filteredOffers.length > 1" class="border-gradient rounded-xl p-6">
+                    <div v-if="filteredOffers.length > 1" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <BarChart3 class="size-4 text-dealytics-purple" />
                             <h2 class="font-heading text-lg font-semibold">Comparaison des prix par magasin</h2>
@@ -874,7 +875,7 @@ onMounted(async () => {
                     </div>
 
                     <!-- NEXARDA — All stores prices (official + keyshops) -->
-                    <div v-if="nexarda.offers.length" class="border-gradient rounded-xl p-6">
+                    <div v-if="nexarda.offers.length" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <Store class="size-4 text-dealytics-pink" />
@@ -1018,7 +1019,7 @@ onMounted(async () => {
                             Les keyshops et marketplaces vendent des clés de revendeurs — prix bas, mais vérifiez la fiabilité du vendeur
                         </p>
                     </div>
-                    <div v-else class="border-gradient rounded-xl p-6 text-center">
+                    <div v-else v-reveal class="border-gradient rounded-xl p-6 text-center">
                         <Store class="mx-auto mb-2 size-8 text-muted-foreground/40" />
                         <p class="text-sm text-muted-foreground">Aucune offre disponible pour ce jeu actuellement.</p>
                     </div>
@@ -1027,7 +1028,7 @@ onMounted(async () => {
                 <!-- Right column: actions -->
                 <div class="space-y-6">
                     <!-- Actions -->
-                    <div class="border-gradient rounded-xl p-6">
+                    <div v-reveal class="border-gradient rounded-xl p-6">
                         <h3 class="mb-4 font-heading text-base font-semibold">Actions</h3>
 
                         <div class="space-y-3">
@@ -1066,7 +1067,7 @@ onMounted(async () => {
                     </div>
 
                     <!-- Price Alert -->
-                    <div class="border-gradient rounded-xl p-6">
+                    <div v-reveal="{ delay: 90 }" class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <Bell class="size-4 text-dealytics-cyan" />
                             <h3 class="font-heading text-base font-semibold">Alerte de prix</h3>
@@ -1116,7 +1117,7 @@ onMounted(async () => {
                     </div>
 
                     <!-- Game Info -->
-                    <div class="border-gradient rounded-xl p-6">
+                    <div v-reveal="{ delay: 180 }" class="border-gradient rounded-xl p-6">
                         <h3 class="mb-4 font-heading text-base font-semibold">Informations</h3>
                         <dl class="space-y-3 text-sm">
                             <div class="flex justify-between">
