@@ -592,11 +592,11 @@ onMounted(async () => {
                         :alt="title"
                         class="size-full object-cover"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
 
                     <!-- Content overlay -->
                     <div class="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                        <h1 class="font-heading text-3xl font-bold text-white md:text-4xl">
+                        <h1 class="font-heading text-3xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] md:text-4xl">
                             {{ title }}
                         </h1>
 
@@ -605,15 +605,15 @@ onMounted(async () => {
                             <span
                                 v-for="genre in rawg.genres"
                                 :key="genre"
-                                class="rounded-full bg-dealytics-purple/30 px-2.5 py-0.5 text-[10px] font-medium text-dealytics-purple backdrop-blur-sm"
+                                class="rounded-full border border-dealytics-purple/40 bg-black/50 px-2.5 py-0.5 text-[10px] font-semibold text-dealytics-purple backdrop-blur-md"
                             >
                                 {{ genre }}
                             </span>
-                            <span v-if="rawgReleaseDate" class="flex items-center gap-1 text-[10px] text-white/50">
+                            <span v-if="rawgReleaseDate" class="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white/80 backdrop-blur-md">
                                 <Calendar class="size-2.5" />
                                 {{ rawgReleaseDate }}
                             </span>
-                            <span v-if="rawg.rating > 0" class="flex items-center gap-1 rounded-full bg-dealytics-cyan/20 px-2 py-0.5 text-[10px] font-medium text-dealytics-cyan backdrop-blur-sm">
+                            <span v-if="rawg.rating > 0" class="flex items-center gap-1 rounded-full border border-dealytics-cyan/40 bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-dealytics-cyan backdrop-blur-md">
                                 <Star class="size-2.5 fill-dealytics-cyan" />
                                 {{ rawg.rating.toFixed(1) }}/5
                             </span>
@@ -953,24 +953,24 @@ onMounted(async () => {
                                 :href="offer.url || '#'"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="flex items-center justify-between rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
+                                class="flex items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
                             >
-                                <div class="flex items-center gap-3">
+                                <div class="flex min-w-0 flex-1 items-center gap-3">
                                     <img
                                         v-if="offer.storeImage"
                                         :src="offer.storeImage"
                                         :alt="offer.store"
-                                        class="size-8 rounded-lg object-contain"
+                                        class="size-8 shrink-0 rounded-lg object-contain"
                                         @error="($event.target as HTMLImageElement).style.display = 'none'"
                                     />
-                                    <div v-else class="flex size-8 items-center justify-center rounded-lg bg-background">
+                                    <div v-else class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-background">
                                         <Store class="size-4 text-muted-foreground" />
                                     </div>
-                                    <div>
+                                    <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-2">
-                                            <span class="text-sm font-medium">{{ offer.store }}</span>
+                                            <span class="truncate text-sm font-medium">{{ offer.store }}</span>
                                             <span
-                                                class="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                                                class="shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-medium"
                                                 :class="offer.official
                                                     ? 'bg-dealytics-cyan/15 text-dealytics-cyan'
                                                     : 'bg-yellow-400/15 text-yellow-400'"
@@ -978,16 +978,16 @@ onMounted(async () => {
                                                 {{ offer.official ? 'Officiel' : offer.storeType }}
                                             </span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <span v-if="offer.discount > 0" class="text-[10px] text-dealytics-pink">
+                                        <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <span v-if="offer.discount > 0" class="whitespace-nowrap text-[10px] text-dealytics-pink">
                                                 -{{ offer.discount }}%
                                             </span>
-                                            <span v-if="offer.editionFull" class="text-[10px] text-muted-foreground">
+                                            <span v-if="offer.editionFull" class="min-w-0 truncate text-[10px] text-muted-foreground">
                                                 {{ offer.editionFull }}
                                             </span>
                                             <span
                                                 v-if="offer.coupon"
-                                                class="rounded bg-dealytics-purple/20 px-1 py-0.5 text-[9px] font-medium text-dealytics-purple"
+                                                class="shrink-0 whitespace-nowrap rounded bg-dealytics-purple/20 px-1 py-0.5 text-[9px] font-medium text-dealytics-purple"
                                             >
                                                 Code : {{ offer.coupon.code }}
                                             </span>
@@ -995,19 +995,19 @@ onMounted(async () => {
                                     </div>
                                 </div>
 
-                                <div class="flex items-center gap-3">
+                                <div class="flex shrink-0 items-center gap-3">
                                     <div class="text-right">
                                         <div class="text-sm font-bold text-dealytics-cyan">
                                             {{ offer.price.toFixed(2) }}{{ currencySymbol }}
                                         </div>
                                         <div
                                             v-if="offer.coupon"
-                                            class="text-[10px] text-muted-foreground line-through"
+                                            class="whitespace-nowrap text-[10px] text-muted-foreground line-through"
                                         >
                                             {{ offer.coupon.priceWithout.toFixed(2) }}{{ currencySymbol }}
                                         </div>
                                     </div>
-                                    <ExternalLink class="size-3.5 text-muted-foreground" />
+                                    <ExternalLink class="size-3.5 shrink-0 text-muted-foreground" />
                                 </div>
                             </a>
                         </div>
@@ -1034,7 +1034,10 @@ onMounted(async () => {
                         <div class="space-y-3">
                             <!-- Favorite button -->
                             <Button
-                                class="w-full gap-2 transition-all duration-200 active:scale-95"
+                                :class="[
+                                    'w-full gap-2 transition-all duration-200 active:scale-95',
+                                    !isFavorite && 'hover:border-dealytics-purple/50 hover:bg-dealytics-purple/10 hover:text-dealytics-purple dark:hover:border-dealytics-purple/50 dark:hover:bg-dealytics-purple/10 dark:hover:text-dealytics-purple',
+                                ]"
                                 :variant="isFavorite ? 'default' : 'outline'"
                                 @click="toggleFavorite"
                             >

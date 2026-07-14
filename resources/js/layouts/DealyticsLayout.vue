@@ -9,6 +9,7 @@ import {
     Instagram,
     Link2,
     LogIn,
+    Shield,
 } from 'lucide-vue-next';
 import type { LucideIcon } from 'lucide-vue-next';
 import { computed, onMounted } from 'vue';
@@ -62,11 +63,25 @@ interface NavItem {
     icon: LucideIcon;
 }
 
-const navItems: NavItem[] = [
-    { title: 'Accueil', href: '/', icon: Home },
-    { title: 'Favoris', href: '/favorites', icon: Heart },
-    { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
-];
+const isAdmin = computed(() =>
+    ['admin', 'superadmin'].includes(
+        (auth.value?.user?.role as string | undefined) ?? '',
+    ),
+);
+
+const navItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
+        { title: 'Accueil', href: '/', icon: Home },
+        { title: 'Favoris', href: '/favorites', icon: Heart },
+        { title: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
+    ];
+
+    if (isAdmin.value) {
+        items.push({ title: 'Admin', href: '/admin/users', icon: Shield });
+    }
+
+    return items;
+});
 
 const productLinks = ['Caractéristiques', 'Tarification', 'API'];
 const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];

@@ -18,7 +18,7 @@ const badge = computed(() => {
         return {
             label: 'Excellent Deal',
             icon: Flame,
-            class: 'border-dealytics-pink/40 bg-dealytics-pink/10 text-dealytics-pink',
+            class: 'border-dealytics-pink/60 text-dealytics-pink',
             iconClass: 'text-dealytics-pink',
             description: 'Prix au plus bas historique !',
         };
@@ -29,7 +29,7 @@ const badge = computed(() => {
         return {
             label: 'Peut baisser',
             icon: AlertTriangle,
-            class: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400',
+            class: 'border-yellow-500/60 text-yellow-400',
             iconClass: 'text-yellow-400',
             description: 'Le prix a déjà été plus bas.',
         };
@@ -39,7 +39,7 @@ const badge = computed(() => {
     return {
         label: 'Prix correct',
         icon: Snowflake,
-        class: 'border-dealytics-cyan/40 bg-dealytics-cyan/10 text-dealytics-cyan',
+        class: 'border-dealytics-cyan/60 text-dealytics-cyan',
         iconClass: 'text-dealytics-cyan',
         description: 'Promotion intéressante mais pas exceptionnelle.',
     };
@@ -48,13 +48,13 @@ const badge = computed(() => {
 
 <template>
     <div
-        class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5"
+        class="inline-flex items-center gap-2 rounded-lg border bg-black/50 px-3 py-1.5 backdrop-blur-md"
         :class="badge.class"
     >
         <component :is="badge.icon" class="size-4" :class="badge.iconClass" />
         <div>
             <span class="text-sm font-semibold">{{ badge.label }}</span>
-            <p class="text-[10px] opacity-70">{{ badge.description }}</p>
+            <p class="text-[10px] opacity-90">{{ badge.description }}</p>
         </div>
     </div>
 </template>

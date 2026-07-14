@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\GameController;
@@ -12,6 +13,17 @@ use Laravel\Fortify\Features;
 
 Route::inertia('/', 'Home')->name('home');
 Route::redirect('/search', '/');
+
+// Admin panel — user management (admin + super admin only).
+Route::middleware(['auth', 'verified', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::put('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+    });
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('favorites', 'Favorites')->name('favorites');

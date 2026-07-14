@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -30,7 +31,26 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'role' => UserRole::class,
         ];
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SuperAdmin;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::Admin;
+    }
+
+    /**
+     * Whether the user may access the admin panel (admin or super admin).
+     */
+    public function canAccessAdminPanel(): bool
+    {
+        return $this->role?->isAdminTier() ?? false;
     }
 
     public function favorites(): HasMany
