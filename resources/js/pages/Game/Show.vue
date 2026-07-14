@@ -586,17 +586,20 @@ onMounted(async () => {
         <template v-else-if="nexarda">
             <!-- Hero image + title -->
             <div class="relative mb-8 overflow-hidden rounded-2xl border-gradient-strong">
-                <div class="relative aspect-[21/9] overflow-hidden">
+                <div class="relative">
+                    <!-- Background image fills the hero; on mobile the content
+                         below drives the height so nothing is clipped, while md+
+                         keeps the wide cinematic ratio. -->
                     <GameImage
                         :src="heroImage"
                         :alt="title"
-                        class="size-full object-cover"
+                        class="absolute inset-0 size-full object-cover"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/65 to-black/20 md:via-black/60 md:to-transparent" />
 
                     <!-- Content overlay -->
-                    <div class="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                        <h1 class="font-heading text-3xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] md:text-4xl">
+                    <div class="relative flex min-h-60 flex-col justify-end p-5 sm:min-h-72 sm:p-6 md:aspect-[21/9] md:min-h-0 md:p-8">
+                        <h1 class="font-heading text-2xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] sm:text-3xl md:text-4xl">
                             {{ title }}
                         </h1>
 
@@ -605,15 +608,15 @@ onMounted(async () => {
                             <span
                                 v-for="genre in rawg.genres"
                                 :key="genre"
-                                class="rounded-full border border-dealytics-purple/40 bg-black/50 px-2.5 py-0.5 text-[10px] font-semibold text-dealytics-purple backdrop-blur-md"
+                                class="rounded-full border border-dealytics-purple/60 bg-black/70 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-md"
                             >
                                 {{ genre }}
                             </span>
-                            <span v-if="rawgReleaseDate" class="flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white/80 backdrop-blur-md">
+                            <span v-if="rawgReleaseDate" class="flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
                                 <Calendar class="size-2.5" />
                                 {{ rawgReleaseDate }}
                             </span>
-                            <span v-if="rawg.rating > 0" class="flex items-center gap-1 rounded-full border border-dealytics-cyan/40 bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-dealytics-cyan backdrop-blur-md">
+                            <span v-if="rawg.rating > 0" class="flex items-center gap-1 rounded-full border border-dealytics-cyan/50 bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-dealytics-cyan backdrop-blur-md">
                                 <Star class="size-2.5 fill-dealytics-cyan" />
                                 {{ rawg.rating.toFixed(1) }}/5
                             </span>
@@ -651,7 +654,7 @@ onMounted(async () => {
             <!-- Main grid -->
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Left column: about + screenshots + offers -->
-                <div class="space-y-6 lg:col-span-2">
+                <div class="min-w-0 space-y-6 lg:col-span-2">
                     <!-- RAWG Description -->
                     <div v-if="rawgLoading" class="border-gradient rounded-xl p-6">
                         <div class="mb-3 h-5 w-40 animate-pulse rounded bg-secondary" />
@@ -1026,7 +1029,7 @@ onMounted(async () => {
                 </div>
 
                 <!-- Right column: actions -->
-                <div class="space-y-6">
+                <div class="min-w-0 space-y-6">
                     <!-- Actions -->
                     <div v-reveal class="border-gradient rounded-xl p-6">
                         <h3 class="mb-4 font-heading text-base font-semibold">Actions</h3>
