@@ -38,7 +38,7 @@ defineProps<{
             </div>
 
             <!-- Footer -->
-            <p class="mt-8 text-center text-[11px] text-muted-foreground/40">
+            <p class="mt-8 text-center text-[11px] text-muted-foreground/80">
                 &copy; {{ new Date().getFullYear() }} Dealytics &mdash; TFE Project
             </p>
         </div>

@@ -15,6 +15,7 @@ import {
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
 import type { FavoriteGame } from '@/composables/useFavorites';
+import { vReveal } from '@/directives/reveal';
 import { api } from '@/lib/api';
 
 interface EnrichedFavorite extends FavoriteGame {
@@ -233,7 +234,7 @@ const sortedFavorites = computed(() => {
         </div>
 
         <!-- Stats Cards -->
-        <div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div v-reveal="{ y: 16 }" class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
             <div class="border-gradient rounded-xl p-4">
                 <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
                     <Heart class="size-4 text-dealytics-pink" />
@@ -370,7 +371,7 @@ const sortedFavorites = computed(() => {
         </div>
 
         <!-- Steam Wishlist -->
-        <section class="mt-12">
+        <section v-reveal class="mt-12">
             <div class="mb-5 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-cyan/15">
