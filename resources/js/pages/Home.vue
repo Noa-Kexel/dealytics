@@ -101,6 +101,7 @@ const { loadFavorites } = useFavorites();
 onMounted(() => {
     loadFavorites();
     loadGames();
+    loadStats();
 });
 
 // Client-side sort + filter over the fetched pages (Nexarda's API ignores
@@ -143,17 +144,21 @@ const displayedGames = computed(() => filterAndSort(games.value));
 
 const hasMore = computed(() => currentPage.value < totalPages.value);
 
-// Stats
-const gamesTracked = computed(() => games.value.filter((g) => g.price !== null).length);
-const hotDeals = computed(() => games.value.filter((g) => g.discount > 50).length);
-const totalSavings = computed(() =>
-    Math.round(
-        games.value.reduce(
-            (acc, g) => acc + ((g.normalPrice ?? 0) - (g.price ?? 0)),
-            0,
-        ),
-    ),
-);
+// Real, platform-wide stats (computed server-side from tracked games,
+// price snapshots and logged purchases — see StatsController).
+const stats = ref({ trackedGames: 0, hotDeals: 0, totalSavings: 0 });
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+
+        if (response.ok) {
+            stats.value = await response.json();
+        }
+    } catch {
+        // stats are non-critical — leave the defaults
+    }
+}
 
 async function fetchGames(page: number): Promise<GamesResponse> {
     const params = new URLSearchParams();
@@ -364,7 +369,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                             <div>
                                 <span
                                     class="text-lg font-bold text-dealytics-purple"
-                                    >{{ gamesTracked }}+</span
+                                    >{{ stats.trackedGames.toLocaleString('fr-FR') }}</span
                                 >
                                 <span class="ml-1 text-xs text-muted-foreground"
                                     >Jeux suivis</span
@@ -376,7 +381,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                             <div>
                                 <span
                                     class="text-lg font-bold text-dealytics-pink"
-                                    >{{ hotDeals }}</span
+                                    >{{ stats.hotDeals.toLocaleString('fr-FR') }}</span
                                 >
                                 <span class="ml-1 text-xs text-muted-foreground"
                                     >Promos chaudes</span
@@ -390,7 +395,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                             <div>
                                 <span
                                     class="text-lg font-bold text-dealytics-cyan"
-                                    >{{ totalSavings }}€</span
+                                    >{{ stats.totalSavings.toLocaleString('fr-FR') }}€</span
                                 >
                                 <span class="ml-1 text-xs text-muted-foreground"
                                     >Economies totales</span

@@ -48,13 +48,13 @@ const badge = computed(() => {
 
 <template>
     <div
-        class="inline-flex items-center gap-2 rounded-lg border bg-black/50 px-3 py-1.5 backdrop-blur-md"
+        class="inline-flex items-center gap-2 rounded-lg border bg-black/70 px-3 py-1.5 backdrop-blur-md"
         :class="badge.class"
     >
         <component :is="badge.icon" class="size-4" :class="badge.iconClass" />
         <div>
             <span class="text-sm font-semibold">{{ badge.label }}</span>
-            <p class="text-[10px] opacity-90">{{ badge.description }}</p>
+            <p class="text-[10px] text-white/85">{{ badge.description }}</p>
         </div>
     </div>
 </template>
