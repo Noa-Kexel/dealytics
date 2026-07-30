@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Bell, Send, Check, BellRing, Info } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { Bell, Send, Check, BellRing, Info, Mail, ExternalLink } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import AdminTabs from '@/components/AdminTabs.vue';
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/composables/useNotifications';
@@ -13,11 +13,46 @@ interface Sample {
     targetPrice: number;
 }
 
-const props = defineProps<{ sample: Sample }>();
+interface MailTemplate {
+    key: string;
+    label: string;
+}
+
+const props = defineProps<{
+    sample: Sample;
+    templates: MailTemplate[];
+    mailer: string;
+}>();
 
 const { loadNotifications } = useNotifications();
 const sending = ref(false);
 const sent = ref(false);
+
+// ── Aperçu des e-mails ──────────────────────────────────────
+const activeTemplate = ref(props.templates[0]?.key ?? '');
+const previewUrl = computed(() => `/admin/notifications/preview/${activeTemplate.value}`);
+
+const sendingEmail = ref(false);
+const emailSent = ref(false);
+
+function sendTestEmail() {
+    sendingEmail.value = true;
+
+    router.post(
+        '/admin/notifications/test-email',
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                emailSent.value = true;
+                setTimeout(() => (emailSent.value = false), 4000);
+            },
+            onFinish: () => {
+                sendingEmail.value = false;
+            },
+        },
+    );
+}
 
 function sendTest() {
     sending.value = true;
@@ -63,7 +98,7 @@ function sendTest() {
                     Test des notifications
                 </h1>
                 <p class="text-xs text-muted-foreground">
-                    Envoyez-vous un exemple d'alerte de prix pour vérifier le rendu
+                    Envoyez-vous un exemple d'alerte de prix et prévisualisez les e-mails
                 </p>
             </div>
         </div>
@@ -133,5 +168,76 @@ function sendTest() {
                 </div>
             </div>
         </div>
+
+        <!-- Aperçu des e-mails -->
+        <section class="border-gradient mt-6 rounded-xl p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <Mail class="size-4 text-dealytics-purple" />
+                    <h2 class="font-heading text-lg font-semibold">Aperçu des e-mails</h2>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a
+                        :href="previewUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-dealytics-purple/40 hover:text-foreground"
+                    >
+                        <ExternalLink class="size-3.5" />
+                        Ouvrir dans un onglet
+                    </a>
+                    <Button
+                        variant="outline"
+                        class="gap-2 text-xs"
+                        :disabled="sendingEmail"
+                        @click="sendTestEmail"
+                    >
+                        <Check v-if="emailSent" class="size-3.5" />
+                        <Send v-else class="size-3.5" />
+                        {{ emailSent ? 'E-mail envoyé !' : "M'envoyer l'alerte par e-mail" }}
+                    </Button>
+                </div>
+            </div>
+
+            <!-- Sélecteur de gabarit -->
+            <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                    v-for="template in templates"
+                    :key="template.key"
+                    type="button"
+                    class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors"
+                    :class="
+                        activeTemplate === template.key
+                            ? 'bg-dealytics-purple/15 text-dealytics-purple'
+                            : 'bg-secondary/50 text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeTemplate = template.key"
+                >
+                    {{ template.label }}
+                </button>
+            </div>
+
+            <div class="mt-4 overflow-hidden rounded-xl border border-border/60">
+                <iframe
+                    :src="previewUrl"
+                    title="Aperçu de l'e-mail"
+                    class="h-[38rem] w-full bg-dealytics-dark"
+                />
+            </div>
+
+            <p class="mt-3 flex items-start gap-2 text-[11px] text-muted-foreground">
+                <Info class="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                    Les gabarits vivent dans <code>resources/views/emails</code> et sont rendus
+                    ici avec des données d'exemple. Le driver de messagerie actif est
+                    <strong>{{ mailer }}</strong
+                    ><template v-if="mailer === 'log'">
+                        : les e-mails ne partent pas et sont écrits dans
+                        <code>storage/logs/laravel.log</code></template
+                    >.
+                </span>
+            </p>
+        </section>
     </div>
 </template>
