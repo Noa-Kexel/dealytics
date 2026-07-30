@@ -3,8 +3,10 @@
 use App\Http\Controllers\Admin\NotificationTestController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\FaqController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceAlertController;
 use App\Http\Controllers\PurchaseController;
@@ -14,6 +16,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Home')->name('home');
 Route::redirect('/search', '/');
+
+Route::get('faq', FaqController::class)->name('faq');
+
+// Pages légales (accessibles sans compte, référencées dans le pied de page et les e-mails).
+Route::get('mentions-legales', [LegalController::class, 'notice'])->name('legal.notice');
+Route::get('confidentialite', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('conditions-generales', [LegalController::class, 'terms'])->name('legal.terms');
 
 // Admin panel — user management (admin + super admin only).
 Route::middleware(['auth', 'verified', 'admin'])
@@ -27,6 +36,8 @@ Route::middleware(['auth', 'verified', 'admin'])
 
         Route::get('notifications', [NotificationTestController::class, 'index'])->name('notifications.index');
         Route::post('notifications/test', [NotificationTestController::class, 'send'])->name('notifications.test');
+        Route::post('notifications/test-email', [NotificationTestController::class, 'sendEmail'])->name('notifications.test-email');
+        Route::get('notifications/preview/{template}', [NotificationTestController::class, 'preview'])->name('notifications.preview');
     });
 
 Route::middleware(['auth', 'verified'])->group(function () {

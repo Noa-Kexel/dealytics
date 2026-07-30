@@ -228,6 +228,63 @@
     }
 }
 
+/* Pages légales : mise en forme du contenu rédactionnel (voir LegalPage.vue) */
+@layer components {
+    .legal-prose p,
+    .legal-prose li {
+        @apply text-sm leading-relaxed text-muted-foreground;
+    }
+
+    .legal-prose p + p {
+        @apply mt-3;
+    }
+
+    .legal-prose strong {
+        @apply font-semibold text-foreground;
+    }
+
+    .legal-prose a {
+        @apply text-dealytics-purple underline underline-offset-2 transition-colors hover:text-dealytics-pink;
+    }
+
+    .legal-prose h3 {
+        @apply mt-5 mb-2 font-heading text-sm font-semibold text-foreground;
+    }
+
+    .legal-prose code {
+        @apply rounded-md bg-secondary/70 px-1.5 py-0.5 font-mono text-[0.8em] text-dealytics-cyan;
+    }
+
+    .legal-prose ul,
+    .legal-prose ol {
+        @apply mt-3 space-y-2 pl-5;
+    }
+
+    .legal-prose ul {
+        list-style-type: disc;
+    }
+
+    .legal-prose ol {
+        list-style-type: decimal;
+    }
+
+    .legal-prose li::marker {
+        color: color-mix(in srgb, var(--color-dealytics-purple) 70%, transparent);
+    }
+
+    .legal-prose dl {
+        @apply mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-[11rem_minmax(0,1fr)];
+    }
+
+    .legal-prose dt {
+        @apply text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase sm:pt-0.5;
+    }
+
+    .legal-prose dd {
+        @apply text-sm text-foreground;
+    }
+}
+
 /* Page entrance animation */
 @keyframes page-in {
     from {

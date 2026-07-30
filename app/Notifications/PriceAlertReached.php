@@ -27,19 +27,21 @@ class PriceAlertReached extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $gameUrl = url('/game/'.$this->alert->game_id);
-
         return (new MailMessage)
-            ->subject('Dealytics — Prix cible atteint : '.$this->alert->title)
-            ->greeting('Bonne nouvelle !')
-            ->line(sprintf(
-                '« %s » est maintenant à %.2f€, en dessous de votre objectif de %.2f€.',
+            ->subject(sprintf(
+                '%s — Prix cible atteint : %s à %s €',
+                config('app.name'),
                 $this->alert->title,
-                $this->currentPrice,
-                (float) $this->alert->target_price,
+                number_format($this->currentPrice, 2, ',', ' '),
             ))
-            ->action('Voir le jeu', $gameUrl)
-            ->line('Merci d\'utiliser Dealytics pour suivre vos jeux.');
+            ->view('emails.price-alert', [
+                'userName' => $notifiable->name,
+                'title' => $this->alert->title,
+                'currentPrice' => $this->currentPrice,
+                'targetPrice' => (float) $this->alert->target_price,
+                'gameUrl' => url('/game/'.$this->alert->game_id),
+                'alertsUrl' => url('/favorites'),
+            ]);
     }
 
     /**

@@ -76,8 +76,18 @@ const navItems = computed<NavItem[]>(() => {
     return items;
 });
 
-const productLinks = ['Caractéristiques', 'Tarification', 'API'];
-const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];
+const serviceLinks = [
+    { title: 'Accueil', href: '/' },
+    { title: 'Favoris', href: '/favorites' },
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'FAQ', href: '/faq' },
+];
+
+const legalLinks = [
+    { title: 'Mentions légales', href: '/mentions-legales' },
+    { title: 'Confidentialité', href: '/confidentialite' },
+    { title: "Conditions d'utilisation", href: '/conditions-generales' },
+];
 
 // Mobile navigation dropdown (slides down from under the header)
 const menuOpen = ref(false);
@@ -420,36 +430,36 @@ onMounted(async () => {
                         </div>
                     </div>
 
-                    <!-- Produits -->
+                    <!-- Navigation -->
                     <div>
                         <h3 class="text-sm font-semibold text-dealytics-purple">
-                            Produits
+                            Navigation
                         </h3>
                         <ul class="mt-3 space-y-2">
-                            <li v-for="link in productLinks" :key="link">
-                                <a
-                                    href="#"
+                            <li v-for="link in serviceLinks" :key="link.href">
+                                <Link
+                                    :href="link.href"
                                     class="text-xs text-muted-foreground transition-colors hover:text-foreground"
                                 >
-                                    {{ link }}
-                                </a>
+                                    {{ link.title }}
+                                </Link>
                             </li>
                         </ul>
                     </div>
 
-                    <!-- Support -->
+                    <!-- Légal -->
                     <div>
                         <h3 class="text-sm font-semibold text-dealytics-purple">
-                            Support
+                            Légal
                         </h3>
                         <ul class="mt-3 space-y-2">
-                            <li v-for="link in supportLinks" :key="link">
-                                <a
-                                    href="#"
+                            <li v-for="link in legalLinks" :key="link.href">
+                                <Link
+                                    :href="link.href"
                                     class="text-xs text-muted-foreground transition-colors hover:text-foreground"
                                 >
-                                    {{ link }}
-                                </a>
+                                    {{ link.title }}
+                                </Link>
                             </li>
                         </ul>
                     </div>
