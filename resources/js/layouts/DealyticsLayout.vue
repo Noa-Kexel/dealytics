@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    ChevronRight,
     Heart,
     Home,
     LayoutGrid,
-    Menu,
     Twitter,
     Instagram,
     Link2,
@@ -12,7 +12,7 @@ import {
     Shield,
 } from 'lucide-vue-next';
 import type { LucideIcon } from 'lucide-vue-next';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import AlertToast from '@/components/AlertToast.vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -24,13 +24,6 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from '@/components/ui/sheet';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { useAlerts } from '@/composables/useAlerts';
 import { getInitials } from '@/composables/useInitials';
@@ -86,10 +79,45 @@ const navItems = computed<NavItem[]>(() => {
 const productLinks = ['Caractéristiques', 'Tarification', 'API'];
 const supportLinks = ["Centre d'aide", 'Contact', 'Confidentialité'];
 
+// Mobile navigation dropdown (slides down from under the header)
+const menuOpen = ref(false);
+// Teleport is client-only to avoid SSR hydration mismatches (Inertia SSR).
+const mounted = ref(false);
+
+function closeMenu() {
+    menuOpen.value = false;
+}
+
+function onKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+        closeMenu();
+    }
+}
+
+// Lock body scroll and wire Escape while the menu is open; close on navigation.
+watch(menuOpen, (open) => {
+    document.body.style.overflow = open ? 'hidden' : '';
+
+    if (open) {
+        window.addEventListener('keydown', onKeydown);
+    } else {
+        window.removeEventListener('keydown', onKeydown);
+    }
+});
+
+watch(() => page.url, closeMenu);
+
+onUnmounted(() => {
+    document.body.style.overflow = '';
+    window.removeEventListener('keydown', onKeydown);
+});
+
 const { loadAlerts, checkAlerts, startAlertPolling } = useAlerts();
 const { loadNotifications } = useNotifications();
 
 onMounted(async () => {
+    mounted.value = true;
+
     await loadAlerts();
     await checkAlerts();
     startAlertPolling();
@@ -179,53 +207,159 @@ onMounted(async () => {
                         Connexion
                     </Link>
 
-                    <!-- Mobile menu -->
-                    <Sheet>
-                        <SheetTrigger :as-child="true">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                class="size-9 md:hidden"
-                            >
-                                <Menu class="size-5" />
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent
-                            side="right"
-                            class="w-70 border-border/50 bg-background p-0"
+                    <!-- Mobile menu trigger (animated hamburger) -->
+                    <button
+                        type="button"
+                        aria-label="Menu"
+                        :aria-expanded="menuOpen"
+                        aria-controls="mobile-menu"
+                        class="group relative z-50 inline-flex size-9 items-center justify-center rounded-xl border transition-[color,background-color,border-color] duration-200 active:scale-95 md:hidden"
+                        :class="
+                            menuOpen
+                                ? 'border-dealytics-purple/40 bg-dealytics-purple/10 text-dealytics-purple'
+                                : 'border-border/60 bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground'
+                        "
+                        @click="menuOpen = !menuOpen"
+                    >
+                        <span
+                            class="relative block h-3.5 w-[18px]"
+                            aria-hidden="true"
                         >
-                            <SheetTitle class="sr-only"
-                                >Menu de navigation</SheetTitle
+                            <span
+                                class="absolute left-0 h-[2px] w-full rounded-full bg-current transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                                :class="
+                                    menuOpen
+                                        ? 'top-1/2 -translate-y-1/2 rotate-45'
+                                        : 'top-0'
+                                "
+                            />
+                            <span
+                                class="absolute top-1/2 left-0 h-[2px] w-full -translate-y-1/2 rounded-full bg-current transition-all duration-200 ease-out"
+                                :class="menuOpen ? 'scale-x-0 opacity-0' : ''"
+                            />
+                            <span
+                                class="absolute left-0 h-[2px] w-full rounded-full bg-current transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                                :class="
+                                    menuOpen
+                                        ? 'top-1/2 -translate-y-1/2 -rotate-45'
+                                        : 'bottom-0'
+                                "
+                            />
+                        </span>
+                    </button>
+
+                    <!-- Mobile menu dropdown (slides down from under the header) -->
+                    <!-- Teleport gated on `mounted` so it never runs during SSR (avoids hydration mismatch). -->
+                    <Teleport v-if="mounted" to="body">
+                        <Transition name="menu-fade">
+                            <button
+                                v-if="menuOpen"
+                                type="button"
+                                aria-label="Fermer le menu"
+                                class="fixed top-16 right-0 bottom-0 left-0 z-40 cursor-default bg-background/70 backdrop-blur-sm md:hidden"
+                                @click="closeMenu"
+                            />
+                        </Transition>
+
+                        <Transition name="menu-drop">
+                            <nav
+                                v-if="menuOpen"
+                                id="mobile-menu"
+                                aria-label="Navigation principale"
+                                class="fixed top-16 right-0 left-0 z-40 origin-top overflow-hidden rounded-b-2xl border-b border-border/60 bg-background/95 shadow-2xl shadow-black/50 backdrop-blur-xl md:hidden"
                             >
-                            <SheetHeader class="border-b border-border/50 p-4">
-                                <div class="flex items-center text-base">
-                                    <AppLogoIcon
-                                        class="h-[1cap] w-auto shrink-0"
-                                    />
-                                    <span
-                                        class="text-gradient-purple -ml-0.5 font-heading text-base font-bold"
-                                        >EALYTICS</span
-                                    >
-                                </div>
-                            </SheetHeader>
-                            <nav class="flex flex-col gap-1 p-3">
-                                <Link
-                                    v-for="item in navItems"
-                                    :key="item.title"
-                                    :href="item.href"
-                                    class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-                                    :class="[
-                                        isActive(item.href)
-                                            ? 'bg-secondary text-foreground'
-                                            : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
-                                    ]"
+                                <div
+                                    class="h-px bg-linear-to-r from-transparent via-dealytics-purple/60 to-transparent"
+                                />
+                                <div
+                                    class="pointer-events-none absolute -top-10 right-6 size-40 rounded-full bg-dealytics-purple/20 blur-3xl"
+                                />
+                                <div
+                                    class="relative mx-auto max-w-7xl px-4 py-4 lg:px-6"
                                 >
-                                    <component :is="item.icon" class="size-4" />
-                                    {{ item.title }}
-                                </Link>
+                                    <ul class="flex flex-col gap-1">
+                                        <li
+                                            v-for="(item, index) in navItems"
+                                            :key="item.title"
+                                            class="animate-menu-item"
+                                            :style="{
+                                                animationDelay: `${100 + index * 55}ms`,
+                                            }"
+                                        >
+                                            <Link
+                                                :href="item.href"
+                                                class="group/item flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors"
+                                                :class="[
+                                                    isActive(item.href)
+                                                        ? 'bg-secondary text-foreground'
+                                                        : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+                                                ]"
+                                                @click="closeMenu"
+                                            >
+                                                <span
+                                                    class="flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors"
+                                                    :class="[
+                                                        isActive(item.href)
+                                                            ? 'bg-dealytics-purple/15 text-dealytics-purple'
+                                                            : 'bg-secondary/70 text-muted-foreground group-hover/item:text-foreground',
+                                                    ]"
+                                                >
+                                                    <component
+                                                        :is="item.icon"
+                                                        class="size-[18px]"
+                                                    />
+                                                </span>
+                                                <span class="flex-1">{{
+                                                    item.title
+                                                }}</span>
+                                                <ChevronRight
+                                                    class="size-4 transition-all duration-300 ease-out"
+                                                    :class="[
+                                                        isActive(item.href)
+                                                            ? 'text-dealytics-purple'
+                                                            : 'text-muted-foreground/30 group-hover/item:translate-x-0.5 group-hover/item:text-muted-foreground',
+                                                    ]"
+                                                />
+                                            </Link>
+                                        </li>
+                                    </ul>
+                                    <div
+                                        class="mt-3 flex items-center justify-between border-t border-border/50 pt-3"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <a
+                                                href="#"
+                                                aria-label="X"
+                                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
+                                            >
+                                                <Twitter class="size-4" />
+                                            </a>
+                                            <a
+                                                href="#"
+                                                aria-label="Instagram"
+                                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
+                                            >
+                                                <Instagram class="size-4" />
+                                            </a>
+                                            <a
+                                                href="#"
+                                                aria-label="Lien"
+                                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
+                                            >
+                                                <Link2 class="size-4" />
+                                            </a>
+                                        </div>
+                                        <span
+                                            class="text-[11px] text-muted-foreground/60"
+                                            >&copy;
+                                            {{ new Date().getFullYear() }}
+                                            Dealytics</span
+                                        >
+                                    </div>
+                                </div>
                             </nav>
-                        </SheetContent>
-                    </Sheet>
+                        </Transition>
+                    </Teleport>
                 </div>
             </div>
 

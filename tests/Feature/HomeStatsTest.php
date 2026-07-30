@@ -34,7 +34,8 @@ class HomeStatsTest extends TestCase
         $now = now();
 
         // Tracked games: one via price history, one favorited, one alerted → 3 distinct.
-        PriceSnapshot::record('game-a', 20.00, 60); // 60% off → counts as a hot deal
+        // 60% off on a 20€ price → original 50€, so 30€ of savings available.
+        PriceSnapshot::record('game-a', 20.00, 60);
 
         DB::table('favorites')->insert([
             'user_id' => $user->id,
@@ -53,24 +54,12 @@ class HomeStatsTest extends TestCase
             'updated_at' => $now,
         ]);
 
-        // Savings: bought for 30 that normally costs 50 → 20 saved.
-        DB::table('purchases')->insert([
-            'user_id' => $user->id,
-            'game_title' => 'Game A',
-            'price' => 30.00,
-            'original_price' => 50.00,
-            'store' => 'Steam',
-            'purchased_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
         $this->getJson('/api/stats')
             ->assertOk()
             ->assertJson([
                 'trackedGames' => 3,
                 'hotDeals' => 1,
-                'totalSavings' => 20,
+                'totalSavings' => 30,
             ]);
     }
 

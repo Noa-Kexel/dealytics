@@ -10,10 +10,12 @@ class PurchaseController extends Controller
     public function index(Request $request): JsonResponse
     {
         $month = $request->query('month', now()->format('Y-m'));
+        [$year, $monthNumber] = explode('-', $month);
 
         $purchases = $request->user()
             ->purchases()
-            ->whereRaw("DATE_FORMAT(purchased_at, '%Y-%m') = ?", [$month])
+            ->whereYear('purchased_at', $year)
+            ->whereMonth('purchased_at', $monthNumber)
             ->orderByDesc('purchased_at')
             ->get();
 
@@ -61,11 +63,11 @@ class PurchaseController extends Controller
 
         for ($i = 5; $i >= 0; $i--) {
             $date = $now->copy()->subMonths($i);
-            $month = $date->format('Y-m');
 
             $spent = $request->user()
                 ->purchases()
-                ->whereRaw("DATE_FORMAT(purchased_at, '%Y-%m') = ?", [$month])
+                ->whereYear('purchased_at', $date->year)
+                ->whereMonth('purchased_at', $date->month)
                 ->sum('price');
 
             $history[] = [

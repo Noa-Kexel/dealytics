@@ -1,0 +1,137 @@
+<script setup lang="ts">
+import { Head, router } from '@inertiajs/vue3';
+import { Bell, Send, Check, BellRing, Info } from 'lucide-vue-next';
+import { ref } from 'vue';
+import AdminTabs from '@/components/AdminTabs.vue';
+import { Button } from '@/components/ui/button';
+import { useNotifications } from '@/composables/useNotifications';
+
+interface Sample {
+    gameId: string;
+    title: string;
+    currentPrice: number;
+    targetPrice: number;
+}
+
+const props = defineProps<{ sample: Sample }>();
+
+const { loadNotifications } = useNotifications();
+const sending = ref(false);
+const sent = ref(false);
+
+function sendTest() {
+    sending.value = true;
+
+    router.post(
+        '/admin/notifications/test',
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: async () => {
+                // Same event a real triggered alert dispatches → shows the toast.
+                window.dispatchEvent(
+                    new CustomEvent('dealytics:alert-triggered', { detail: props.sample }),
+                );
+                // Refresh the bell to pick up the new database notification.
+                window.dispatchEvent(new CustomEvent('dealytics:notifications-changed'));
+                await loadNotifications();
+
+                sent.value = true;
+                setTimeout(() => (sent.value = false), 4000);
+            },
+            onFinish: () => {
+                sending.value = false;
+            },
+        },
+    );
+}
+</script>
+
+<template>
+    <Head title="Test des notifications" />
+
+    <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
+        <AdminTabs />
+
+        <!-- Header -->
+        <div class="mb-6 flex items-center gap-3">
+            <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-cyan/20">
+                <BellRing class="size-5 text-dealytics-cyan" />
+            </div>
+            <div>
+                <h1 class="font-heading text-2xl font-bold text-foreground md:text-3xl">
+                    Test des notifications
+                </h1>
+                <p class="text-xs text-muted-foreground">
+                    Envoyez-vous un exemple d'alerte de prix pour vérifier le rendu
+                </p>
+            </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+            <!-- Action -->
+            <div class="border-gradient rounded-xl p-6">
+                <div class="mb-3 flex items-center gap-2">
+                    <Bell class="size-4 text-dealytics-cyan" />
+                    <h2 class="font-heading text-lg font-semibold">Envoyer un test</h2>
+                </div>
+
+                <p class="mb-4 text-sm text-muted-foreground">
+                    Déclenche une vraie notification d'alerte de prix
+                    <span class="font-medium text-foreground">à destination de votre compte</span> :
+                    elle apparaît dans la cloche 🔔 et sous forme de toast, exactement comme lorsqu'un
+                    prix cible est atteint.
+                </p>
+
+                <Button
+                    class="w-full gap-2 bg-dealytics-cyan text-dealytics-dark hover:bg-dealytics-cyan/90"
+                    :disabled="sending"
+                    @click="sendTest"
+                >
+                    <Check v-if="sent" class="size-4" />
+                    <Send v-else class="size-4" />
+                    {{ sent ? 'Notification envoyée !' : 'Envoyer une notification de test' }}
+                </Button>
+
+                <div class="mt-4 flex items-start gap-2 rounded-lg bg-secondary/40 p-3 text-[11px] text-muted-foreground">
+                    <Info class="mt-0.5 size-3.5 shrink-0" />
+                    <span>
+                        Le test crée une notification <strong>in-app</strong> (cloche + toast). Un vrai
+                        déclenchement envoie aussi un e-mail et, si autorisée, une notification
+                        navigateur.
+                    </span>
+                </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="border-gradient rounded-xl p-6">
+                <div class="mb-3 flex items-center gap-2">
+                    <Info class="size-4 text-dealytics-purple" />
+                    <h2 class="font-heading text-lg font-semibold">Aperçu</h2>
+                </div>
+                <p class="mb-4 text-sm text-muted-foreground">Voici le toast qui s'affichera :</p>
+
+                <!-- Static replica of AlertToast -->
+                <div class="w-full max-w-80 overflow-hidden rounded-xl border border-dealytics-cyan/30 bg-background/95 shadow-xl">
+                    <div class="flex items-start gap-3 p-4">
+                        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-dealytics-cyan/15">
+                            <Bell class="size-4 text-dealytics-cyan" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-dealytics-cyan">Prix cible atteint !</p>
+                            <p class="mt-0.5 text-xs leading-snug text-foreground">
+                                {{ sample.title }} est à {{ sample.currentPrice.toFixed(2) }}€
+                                <span class="text-muted-foreground">
+                                    (objectif : {{ sample.targetPrice.toFixed(2) }}€)
+                                </span>
+                            </p>
+                            <span class="mt-2 inline-block text-xs font-medium text-dealytics-purple">
+                                Voir l'offre →
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

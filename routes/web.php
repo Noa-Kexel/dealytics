@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\NotificationTestController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\FavoriteController;
@@ -10,7 +11,6 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SteamWishlistController;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
 Route::inertia('/', 'Home')->name('home');
 Route::redirect('/search', '/');
@@ -24,6 +24,9 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::put('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        Route::get('notifications', [NotificationTestController::class, 'index'])->name('notifications.index');
+        Route::post('notifications/test', [NotificationTestController::class, 'send'])->name('notifications.test');
     });
 
 Route::middleware(['auth', 'verified'])->group(function () {

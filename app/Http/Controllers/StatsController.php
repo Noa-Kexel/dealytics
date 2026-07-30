@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Favorite;
 use App\Models\PriceAlert;
 use App\Models\PriceSnapshot;
-use App\Models\Purchase;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -45,29 +45,40 @@ class StatsController extends Controller
      */
     private function hotDeals(): int
     {
-        $latest = PriceSnapshot::query()
-            ->select('game_id', DB::raw('MAX(captured_on) as latest_on'))
-            ->groupBy('game_id');
-
-        return PriceSnapshot::query()
-            ->joinSub($latest, 'l', function ($join) {
-                $join->on('price_snapshots.game_id', '=', 'l.game_id')
-                    ->on('price_snapshots.captured_on', '=', 'l.latest_on');
-            })
+        return $this->latestSnapshots()
             ->where('price_snapshots.discount', '>=', 50)
             ->distinct()
             ->count('price_snapshots.game_id');
     }
 
     /**
-     * Total money users saved across every purchase they logged.
+     * Total € of savings currently available across tracked deals: for each
+     * game's latest snapshot, (original price − discounted price), summed.
      */
     private function totalSavings(): int
     {
-        $saved = (float) Purchase::query()
-            ->selectRaw('COALESCE(SUM(original_price - price), 0) as saved')
+        $saved = (float) $this->latestSnapshots()
+            ->whereBetween('price_snapshots.discount', [1, 99])
+            ->selectRaw(
+                'COALESCE(SUM(price_snapshots.price / (1 - price_snapshots.discount / 100.0) - price_snapshots.price), 0) as saved'
+            )
             ->value('saved');
 
         return (int) round(max(0, $saved));
+    }
+
+    /**
+     * Base query joined to the most recent snapshot of every game.
+     */
+    private function latestSnapshots(): Builder
+    {
+        $latest = PriceSnapshot::query()
+            ->select('game_id', DB::raw('MAX(captured_on) as latest_on'))
+            ->groupBy('game_id');
+
+        return PriceSnapshot::query()->joinSub($latest, 'l', function ($join) {
+            $join->on('price_snapshots.game_id', '=', 'l.game_id')
+                ->on('price_snapshots.captured_on', '=', 'l.latest_on');
+        });
     }
 }

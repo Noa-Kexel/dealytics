@@ -242,12 +242,7 @@ onMounted(async () => {
                 <Trophy class="size-5 text-dealytics-purple" />
             </div>
             <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="font-heading text-3xl font-bold text-foreground">Dashboard</h1>
-                    <span class="rounded-full bg-dealytics-cyan/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dealytics-cyan">
-                        PRO
-                    </span>
-                </div>
+                <h1 class="font-heading text-3xl font-bold text-foreground">Dashboard</h1>
                 <p class="text-sm text-muted-foreground">Votre centre de commande gaming</p>
             </div>
         </div>
