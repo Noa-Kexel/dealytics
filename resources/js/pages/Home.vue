@@ -101,6 +101,7 @@ const { loadFavorites } = useFavorites();
 onMounted(() => {
     loadFavorites();
     loadGames();
+    loadStats();
 });
 
 // Client-side sort + filter over the fetched pages (Nexarda's API ignores
@@ -143,17 +144,21 @@ const displayedGames = computed(() => filterAndSort(games.value));
 
 const hasMore = computed(() => currentPage.value < totalPages.value);
 
-// Stats
-const gamesTracked = computed(() => games.value.filter((g) => g.price !== null).length);
-const hotDeals = computed(() => games.value.filter((g) => g.discount > 50).length);
-const totalSavings = computed(() =>
-    Math.round(
-        games.value.reduce(
-            (acc, g) => acc + ((g.normalPrice ?? 0) - (g.price ?? 0)),
-            0,
-        ),
-    ),
-);
+// Real, platform-wide stats (computed server-side from tracked games,
+// price snapshots and logged purchases — see StatsController).
+const stats = ref({ trackedGames: 0, hotDeals: 0, totalSavings: 0 });
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+
+        if (response.ok) {
+            stats.value = await response.json();
+        }
+    } catch {
+        // stats are non-critical — leave the defaults
+    }
+}
 
 async function fetchGames(page: number): Promise<GamesResponse> {
     const params = new URLSearchParams();
@@ -364,7 +369,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                             <div>
                                 <span
                                     class="text-lg font-bold text-dealytics-purple"
-                                    >{{ gamesTracked }}+</span
+                                    >{{ stats.trackedGames.toLocaleString('fr-FR') }}</span
                                 >
                                 <span class="ml-1 text-xs text-muted-foreground"
                                     >Jeux suivis</span
@@ -376,7 +381,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                             <div>
                                 <span
                                     class="text-lg font-bold text-dealytics-pink"
-                                    >{{ hotDeals }}</span
+                                    >{{ stats.hotDeals.toLocaleString('fr-FR') }}</span
                                 >
                                 <span class="ml-1 text-xs text-muted-foreground"
                                     >Promos chaudes</span
@@ -390,7 +395,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                             <div>
                                 <span
                                     class="text-lg font-bold text-dealytics-cyan"
-                                    >{{ totalSavings }}€</span
+                                    >{{ stats.totalSavings.toLocaleString('fr-FR') }}€</span
                                 >
                                 <span class="ml-1 text-xs text-muted-foreground"
                                     >Economies totales</span
@@ -464,7 +469,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         <div class="border-gradient mb-8 rounded-xl px-4 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div
-                    class="flex items-center gap-2 text-xs font-medium tracking-wider text-muted-foreground uppercase"
+                    class="flex w-full items-center gap-2 text-xs font-medium tracking-wider text-muted-foreground uppercase sm:w-auto"
                 >
                     <SlidersHorizontal class="size-3.5" />
                     Filtres
@@ -472,7 +477,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
                 <Select v-model="selectedPlatform">
                     <SelectTrigger
-                        class="h-8 w-35 rounded-lg border-border/50 bg-secondary text-xs"
+                        class="h-8 w-[calc(50%_-_0.375rem)] rounded-lg border-border/50 bg-secondary text-xs sm:w-35"
                     >
                         <SelectValue placeholder="Plateforme" />
                     </SelectTrigger>
@@ -490,7 +495,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
                 <Select v-model="maxPrice">
                     <SelectTrigger
-                        class="h-8 w-32.5 rounded-lg border-border/50 bg-secondary text-xs"
+                        class="h-8 w-[calc(50%_-_0.375rem)] rounded-lg border-border/50 bg-secondary text-xs sm:w-32.5"
                     >
                         <SelectValue placeholder="Prix max" />
                     </SelectTrigger>
@@ -507,7 +512,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
                 <Select v-model="sortBy">
                     <SelectTrigger
-                        class="h-8 w-35 rounded-lg border-border/50 bg-secondary text-xs"
+                        class="h-8 w-[calc(50%_-_0.375rem)] rounded-lg border-border/50 bg-secondary text-xs sm:w-35"
                     >
                         <SelectValue placeholder="Trier par" />
                     </SelectTrigger>
@@ -521,7 +526,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
 
                 <button
                     type="button"
-                    class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    class="inline-flex h-8 w-[calc(50%_-_0.375rem)] cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:justify-start"
                     :class="
                         onSaleOnly
                             ? 'border-dealytics-pink/60 bg-dealytics-pink/15 text-dealytics-pink'
@@ -541,14 +546,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         <!-- Results -->
         <div
             v-if="loading"
-            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
         >
             <GameCardSkeleton v-for="i in 8" :key="i" />
         </div>
 
         <div
             v-else-if="displayedGames.length > 0"
-            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
         >
             <GameCard
                 v-for="(game, index) in displayedGames"
@@ -603,7 +608,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         <!-- Loading more skeletons -->
         <div
             v-if="loadingMore"
-            class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
         >
             <GameCardSkeleton v-for="i in 4" :key="'more-' + i" />
         </div>

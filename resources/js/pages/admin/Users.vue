@@ -17,6 +17,7 @@ import {
     ShoppingBag,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import AdminTabs from '@/components/AdminTabs.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -232,6 +233,8 @@ function formatDate(value: string | null): string {
     <Head title="Gestion des utilisateurs" />
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
+        <AdminTabs />
+
         <!-- Header -->
         <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">

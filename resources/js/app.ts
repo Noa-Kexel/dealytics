@@ -1,6 +1,5 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { initializeTheme } from '@/composables/useAppearance';
-import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import DealyticsLayout from '@/layouts/DealyticsLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
@@ -16,7 +15,7 @@ createInertiaApp({
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
-                return [AppLayout, SettingsLayout];
+                return [DealyticsLayout, SettingsLayout];
             case name === 'Home':
             case name === 'Favorites':
             case name === 'GameDashboard':

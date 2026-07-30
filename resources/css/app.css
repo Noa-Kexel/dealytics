@@ -280,6 +280,72 @@
     animation: heart-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
 }
 
+/* Mobile menu item stagger (cascade downward) */
+@keyframes menu-item-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-menu-item {
+    animation: menu-item-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Mobile menu dropdown: unrolls from under the header, top to bottom */
+.menu-drop-enter-active {
+    transition:
+        clip-path 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.3s ease;
+}
+
+.menu-drop-leave-active {
+    transition:
+        clip-path 0.32s cubic-bezier(0.7, 0, 0.84, 0),
+        opacity 0.25s ease 0.05s;
+}
+
+.menu-drop-enter-from,
+.menu-drop-leave-to {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+}
+
+.menu-drop-enter-to,
+.menu-drop-leave-from {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+}
+
+/* Mobile menu backdrop */
+.menu-fade-enter-active,
+.menu-fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.menu-fade-enter-from,
+.menu-fade-leave-to {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-menu-item,
+    .menu-drop-enter-active,
+    .menu-drop-leave-active {
+        animation: none;
+        transition: opacity 0.2s ease;
+    }
+
+    .menu-drop-enter-from,
+    .menu-drop-leave-to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
 /* Screenshot carousel fade transition */
 .screenshot-fade-enter-active,
 .screenshot-fade-leave-active {

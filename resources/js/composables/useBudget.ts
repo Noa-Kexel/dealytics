@@ -71,12 +71,18 @@ function loadAllMonthsFromStorage(): Record<string, MonthlyBudget> {
 // ── Normalize purchase ──────────────────────────────────────
 
 function normalizePurchase(p: Purchase): Purchase {
+    // Laravel's `decimal:2` cast serializes prices as strings ("12.49"), so coerce
+    // to numbers here — otherwise `sum + p.price` concatenates instead of adding.
+    const price = Number(p.price);
+    const originalPrice = Number(p.original_price ?? p.originalPrice ?? p.price);
+
     return {
         ...p,
+        price,
         game_title: p.game_title || p.gameTitle,
         gameTitle: p.game_title || p.gameTitle,
-        original_price: p.original_price ?? p.originalPrice ?? p.price,
-        originalPrice: p.original_price ?? p.originalPrice ?? p.price,
+        original_price: originalPrice,
+        originalPrice,
         purchased_at: p.purchased_at || p.date,
         date: p.purchased_at || p.date,
     };
@@ -115,14 +121,14 @@ export function useBudget() {
     }
 
     const totalSpent = computed(() =>
-        budget.value.purchases.reduce((sum, p) => sum + p.price, 0),
+        budget.value.purchases.reduce((sum, p) => sum + Number(p.price), 0),
     );
 
     const totalSaved = computed(() =>
         budget.value.purchases.reduce((sum, p) => {
-            const original = p.original_price ?? p.originalPrice ?? p.price;
+            const original = Number(p.original_price ?? p.originalPrice ?? p.price);
 
-            return sum + (original - p.price);
+            return sum + (original - Number(p.price));
         }, 0),
     );
 
@@ -166,7 +172,9 @@ export function useBudget() {
     }
 
     async function addPurchase(gameTitle: string, price: number, originalPrice: number, store: string) {
-        const tempId = crypto.randomUUID();
+        // crypto.randomUUID() n'existe qu'en contexte sécurisé (HTTPS/localhost),
+        // pas sur http://dealytics.test — un id temporaire maison suffit ici.
+        const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const now = new Date().toISOString();
 
         const purchase: Purchase = normalizePurchase({

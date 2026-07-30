@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\NotificationTestController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\FavoriteController;
@@ -7,9 +8,9 @@ use App\Http\Controllers\GameController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceAlertController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SteamWishlistController;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
 Route::inertia('/', 'Home')->name('home');
 Route::redirect('/search', '/');
@@ -23,6 +24,9 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::put('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        Route::get('notifications', [NotificationTestController::class, 'index'])->name('notifications.index');
+        Route::post('notifications/test', [NotificationTestController::class, 'send'])->name('notifications.test');
     });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -63,6 +67,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('api/steam/wishlist', [SteamWishlistController::class, 'store']);
     Route::delete('api/steam/wishlist', [SteamWishlistController::class, 'destroy']);
 });
+
+Route::get('api/stats', [StatsController::class, 'index'])->name('stats');
 
 Route::get('game/{id}', [GameController::class, 'show'])->name('game.show');
 Route::get('api/games', [GameController::class, 'games'])->name('game.search');
