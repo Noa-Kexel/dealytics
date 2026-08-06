@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 class SteamStoreService
 {
     /**
-     * Search by title and return enriched game data (same shape as RawgService).
+     * Search by title and return enriched game data for a game page.
      * Uses Steam's public store API — no API key required.
      */
     public function getGameByTitle(string $title): ?array
@@ -119,7 +119,6 @@ class SteamStoreService
                     'rating' => $rating,
                     'ratings_count' => $ratingsCount,
                     'metacritic' => $metacritic,
-                    'playtime' => 0,
                     'genres' => collect($data['genres'] ?? [])->pluck('description')->filter()->values()->all(),
                     'platforms' => $platforms,
                     'developers' => $data['developers'] ?? [],

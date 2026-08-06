@@ -63,13 +63,8 @@ return [
             'url' => 'https://isthereanydeal.com',
         ],
         [
-            'name' => 'RAWG',
-            'usage' => 'Fiches de jeux, visuels, notes et métadonnées',
-            'url' => 'https://rawg.io',
-        ],
-        [
             'name' => 'Steam (Valve)',
-            'usage' => 'Liste de souhaits publique et informations de boutique',
+            'usage' => 'Fiches de jeux, visuels, notes, liste de souhaits publique et informations de boutique',
             'url' => 'https://store.steampowered.com',
         ],
     ],
