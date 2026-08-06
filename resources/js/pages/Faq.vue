@@ -76,12 +76,12 @@ const categories: FaqCategory[] = [
             {
                 id: 'alerte-manquee',
                 question: "Pourquoi n'ai-je pas reçu d'alerte ?",
-                answer: "Plusieurs explications possibles : la promotion a été trop brève entre deux vérifications, le jeu n'était pas disponible chez les sources au moment du relevé, l'e-mail est arrivé dans les indésirables, ou l'alerte s'était déjà déclenchée — une alerte atteinte ne se redéclenche pas tant que vous ne l'avez pas réinitialisée.",
+                answer: "Plusieurs explications possibles : la promotion a été trop brève entre deux vérifications, le jeu n'était pas disponible chez les sources au moment du relevé, l'e-mail est arrivé dans les indésirables, ou l'alerte s'était déjà déclenchée — une alerte atteinte ne se redéclenche pas tant que vous ne l'avez pas supprimée puis recréée.",
             },
             {
                 id: 'alerte-modifier',
                 question: 'Puis-je modifier ou supprimer une alerte ?',
-                answer: 'Oui, à tout moment depuis la page <a href="/favorites">Favoris</a> : vous pouvez y changer le prix cible ou supprimer l\'alerte.',
+                answer: 'Le prix cible se définit depuis la fiche du jeu. Les alertes en cours, elles, se consultent et se suppriment depuis le <a href="/dashboard#price-alerts">dashboard</a>.',
             },
         ],
     },

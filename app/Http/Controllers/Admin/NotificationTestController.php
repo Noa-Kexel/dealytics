@@ -118,7 +118,7 @@ class NotificationTestController extends Controller
                 'currentPrice' => self::SAMPLE['current_price'],
                 'targetPrice' => self::SAMPLE['target_price'],
                 'gameUrl' => url('/game/'.self::SAMPLE['game_id']),
-                'alertsUrl' => url('/favorites'),
+                'alertsUrl' => url('/dashboard#price-alerts'),
             ],
             'verify-email' => [
                 'userName' => $user->name,

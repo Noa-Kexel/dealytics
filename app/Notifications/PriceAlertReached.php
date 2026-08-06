@@ -40,7 +40,8 @@ class PriceAlertReached extends Notification implements ShouldQueue
                 'currentPrice' => $this->currentPrice,
                 'targetPrice' => (float) $this->alert->target_price,
                 'gameUrl' => url('/game/'.$this->alert->game_id),
-                'alertsUrl' => url('/favorites'),
+                // Les alertes se consultent et se suppriment depuis le dashboard.
+                'alertsUrl' => url('/dashboard#price-alerts'),
             ]);
     }
 

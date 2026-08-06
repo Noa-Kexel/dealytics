@@ -26,9 +26,11 @@ Trouvez les meilleures offres gaming, suivez l'évolution des prix, définissez 
 | 🏷️ **Fiche jeu détaillée** | Prix par magasin (stores officiels + keyshops), enrichissement (genres, screenshots, description, Metacritic), score qualité/prix `/100` |
 | 📈 **Historique des prix** | Vraie courbe historique via IsThereAnyDeal (repli sur des snapshots journaliers), filtres temporels (1 mois / 3 mois / 1 an / tout), plus bas prix observé |
 | ❤️ **Favoris** | Sauvegarde des jeux suivis + intégration de la **wishlist Steam** (sans clé API) |
-| 🔔 **Alertes de prix** | Prix cible + notifications navigateur quand le seuil est atteint |
+| 🔔 **Alertes de prix** | Prix cible, vérification horaire côté serveur (scheduler), puis double notification : in-app (cloche) **et** e-mail |
 | 💶 **Budget & achats** | Suivi du budget gaming mensuel, historique des dépenses, tableau de bord |
 | 🔐 **Authentification** | Inscription, vérification e-mail, connexion et **2FA** (Laravel Fortify) |
+| 🛡️ **Administration** | Rôles (utilisateur / admin / super admin), CRUD des comptes, prévisualisation des e-mails transactionnels |
+| 📄 **Pages publiques** | FAQ, mentions légales, politique de confidentialité, CGU |
 
 ---
 
@@ -87,7 +89,6 @@ Renseigne les clés API **optionnelles** dans `.env` pour activer l'historique r
 ```dotenv
 ITAD_API_KEY=          # https://isthereanydeal.com/apps/  → historique des prix
 RAWG_API_KEY=          # https://rawg.io/apidocs           → genres, screenshots, Metacritic
-GGDEALS_API_KEY=       # (optionnel)
 ```
 
 ---
@@ -148,12 +149,14 @@ php artisan test     # tests seuls
 
 ```
 app/
-  Http/Controllers/     # Game, Favorite, PriceAlert, Purchase, Budget, Notification, SteamWishlist
-  Services/             # Nexarda, Itad, Rawg, SteamStore, SteamWishlist, GgDeals, PriceAlertChecker
+  Http/Controllers/     # Game, Favorite, PriceAlert, Purchase, Budget, Notification, SteamWishlist,
+                        # Stats, Faq, Legal, Admin/ (User, NotificationTest), Settings/ (Profile, Security)
+  Services/             # Nexarda, Itad, Rawg, SteamStore, SteamWishlist, PriceAlertChecker
   Console/Commands/     # prices:snapshot, alerts:check
+  Notifications/        # PriceAlertReached (canaux database + mail, en file d'attente)
   Models/               # Favorite, PriceAlert, PriceSnapshot, Purchase, BudgetSetting, Notification…
 resources/js/
-  pages/                # Home, Game/Show, Favorites, GameDashboard, auth/, settings/
+  pages/                # Home, Game/Show, Favorites, GameDashboard, Faq, auth/, settings/, admin/, legal/
   components/            # GameCard, PriceHistoryChart, StorePriceChart, DealBadge…
   composables/           # useFavorites, useAlerts, useBudget, useAppearance…
   directives/            # reveal.ts (v-reveal — scroll reveal)
