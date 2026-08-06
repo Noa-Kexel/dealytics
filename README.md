@@ -48,10 +48,9 @@ Trouvez les meilleures offres gaming, suivez l'évolution des prix, définissez 
 |---|---|---|
 | **Nexarda** | Source principale : recherche, feed d'accueil, prix multi-stores | ❌ Non |
 | **IsThereAnyDeal (ITAD)** | Historique réel des prix | ⚙️ Optionnelle (`ITAD_API_KEY`) |
-| **RAWG** | Enrichissement (genres, screenshots, Metacritic…) | ⚙️ Optionnelle (`RAWG_API_KEY`) |
-| **Steam** | Wishlist + repli d'enrichissement (profils publics) | ❌ Non |
+| **Steam** | Fiches de jeu (description, genres, screenshots, Metacritic, notes) + wishlist (profils publics) | ❌ Non |
 
-> Sans clé, l'app reste fonctionnelle : les fiches jeu retombent sur l'API publique Steam et l'historique se construit via les snapshots journaliers.
+> Sans clé, l'app reste fonctionnelle : les fiches jeu s'appuient sur l'API publique Steam et l'historique se construit via les snapshots journaliers.
 
 ---
 
@@ -84,11 +83,10 @@ Le script `composer setup` enchaîne : `composer install`, copie de `.env`, gén
 
 ### Configuration
 
-Renseigne les clés API **optionnelles** dans `.env` pour activer l'historique réel et l'enrichissement complet :
+Renseigne la clé API **optionnelle** dans `.env` pour activer l'historique réel des prix :
 
 ```dotenv
 ITAD_API_KEY=          # https://isthereanydeal.com/apps/  → historique des prix
-RAWG_API_KEY=          # https://rawg.io/apidocs           → genres, screenshots, Metacritic
 ```
 
 ---
@@ -151,7 +149,7 @@ php artisan test     # tests seuls
 app/
   Http/Controllers/     # Game, Favorite, PriceAlert, Purchase, Budget, Notification, SteamWishlist,
                         # Stats, Faq, Legal, Admin/ (User, NotificationTest), Settings/ (Profile, Security)
-  Services/             # Nexarda, Itad, Rawg, SteamStore, SteamWishlist, PriceAlertChecker
+  Services/             # Nexarda, Itad, SteamStore, SteamWishlist, PriceAlertChecker
   Console/Commands/     # prices:snapshot, alerts:check
   Notifications/        # PriceAlertReached (canaux database + mail, en file d'attente)
   Models/               # Favorite, PriceAlert, PriceSnapshot, Purchase, BudgetSetting, Notification…

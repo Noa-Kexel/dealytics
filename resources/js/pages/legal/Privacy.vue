@@ -7,7 +7,7 @@ import type { LegalProps } from '@/lib/legal';
 
 const props = defineProps<{ legal: LegalProps }>();
 
-// « Nexarda, IsThereAnyDeal, RAWG et Steam »
+// « Nexarda, IsThereAnyDeal et Steam (Valve) »
 const sourceNames = computed(() => {
     const names = props.legal.dataSources.map((source) => source.name);
 

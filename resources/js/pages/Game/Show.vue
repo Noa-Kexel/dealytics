@@ -13,7 +13,6 @@ import {
     Monitor,
     Code,
     Tag,
-    Clock,
     ChevronLeft,
     ChevronRight,
     BarChart3,
@@ -75,8 +74,8 @@ interface NexardaData {
     offers: NexardaOffer[];
 }
 
-interface RawgData {
-    source?: 'rawg' | 'steam';
+interface SteamData {
+    source?: 'steam';
     id: number;
     name: string;
     description: string;
@@ -85,7 +84,6 @@ interface RawgData {
     rating: number;
     ratings_count: number;
     metacritic: number | null;
-    playtime: number;
     genres: string[];
     platforms: string[];
     developers: string[];
@@ -271,19 +269,19 @@ const isAtLowest = computed(
         currentPrice.value <= lowestEver.value * 1.02,
 );
 
-// RAWG enrichment
-const rawg = ref<RawgData | null>(null);
-const rawgLoading = ref(false);
+// Steam enrichment
+const steam = ref<SteamData | null>(null);
+const steamLoading = ref(false);
 const screenshotIndex = ref(0);
 
-const title = computed(() => nexarda.value?.game.name || rawg.value?.name || '');
+const title = computed(() => nexarda.value?.game.name || steam.value?.name || '');
 const currencySymbol = computed(() => nexarda.value?.currencySymbol || '€');
 
 const heroImage = computed(
-    () => rawg.value?.background_image || nexarda.value?.game.cover || '',
+    () => steam.value?.background_image || nexarda.value?.game.cover || '',
 );
 
-const coverImage = computed(() => nexarda.value?.game.cover || rawg.value?.background_image || '');
+const coverImage = computed(() => nexarda.value?.game.cover || steam.value?.background_image || '');
 
 // Cheapest available offer drives the headline price.
 const bestOffer = computed(() => {
@@ -383,12 +381,12 @@ watch(
     },
 );
 
-// Quality/price score (/100) — combines RAWG quality and current discount.
+// Quality/price score (/100) — combines Steam quality and current discount.
 const hasQualityData = computed(() =>
-    checkHasQualityData(rawg.value?.metacritic, rawg.value?.rating),
+    checkHasQualityData(steam.value?.metacritic, steam.value?.rating),
 );
 const qualityValue = computed(() =>
-    getQualityValue(rawg.value?.metacritic, rawg.value?.rating),
+    getQualityValue(steam.value?.metacritic, steam.value?.rating),
 );
 // Original (no-promo) price = the highest current offer across stores, i.e.
 // a store still selling at full price. Falls back to the discount-derived
@@ -400,8 +398,8 @@ const priceValue = computed(() => getPriceValue(currentPrice.value, originalPric
 const qualityPriceScore = computed(() =>
     getQualityPriceScore(
         priceValue.value,
-        rawg.value?.metacritic,
-        rawg.value?.rating,
+        steam.value?.metacritic,
+        steam.value?.rating,
     ),
 );
 const scoreColor = computed(() => getScoreColor(qualityPriceScore.value));
@@ -461,32 +459,28 @@ function clearAlert() {
     alertError.value = '';
 }
 
-// RAWG screenshot navigation
+// Steam screenshot navigation
 function prevScreenshot() {
-    if (rawg.value && rawg.value.screenshots.length > 0) {
-        screenshotIndex.value = (screenshotIndex.value - 1 + rawg.value.screenshots.length) % rawg.value.screenshots.length;
+    if (steam.value && steam.value.screenshots.length > 0) {
+        screenshotIndex.value = (screenshotIndex.value - 1 + steam.value.screenshots.length) % steam.value.screenshots.length;
     }
 }
 
 function nextScreenshot() {
-    if (rawg.value && rawg.value.screenshots.length > 0) {
-        screenshotIndex.value = (screenshotIndex.value + 1) % rawg.value.screenshots.length;
+    if (steam.value && steam.value.screenshots.length > 0) {
+        screenshotIndex.value = (screenshotIndex.value + 1) % steam.value.screenshots.length;
     }
 }
 
-const ratingLabel = computed(() =>
-    rawg.value?.source === 'steam' ? 'Note Steam' : 'Note joueurs',
-);
-
-const rawgReleaseDate = computed(() => {
-    if (!rawg.value?.released) {
+const steamReleaseDate = computed(() => {
+    if (!steam.value?.released) {
         return null;
     }
 
-    const parsed = new Date(rawg.value.released);
+    const parsed = new Date(steam.value.released);
 
     if (Number.isNaN(parsed.getTime())) {
-        return rawg.value.released;
+        return steam.value.released;
     }
 
     return parsed.toLocaleDateString('fr-FR', {
@@ -497,7 +491,7 @@ const rawgReleaseDate = computed(() => {
 });
 
 const shortDescription = ref(true);
-const descriptionIsLong = computed(() => (rawg.value?.description?.length ?? 0) > 400);
+const descriptionIsLong = computed(() => (steam.value?.description?.length ?? 0) > 400);
 
 onMounted(async () => {
     loadFavorites();
@@ -540,21 +534,21 @@ onMounted(async () => {
             alertSet.value = true;
         }
 
-        // RAWG enrichment by title
+        // Steam enrichment by title
         if (nexarda.value?.game.name) {
-            rawgLoading.value = true;
+            steamLoading.value = true;
 
             try {
-                const rawgResponse = await fetch(`/api/rawg/${encodeURIComponent(nexarda.value.game.name)}`);
+                const steamResponse = await fetch(`/api/steam/${encodeURIComponent(nexarda.value.game.name)}`);
 
-                if (rawgResponse.ok) {
-                    rawg.value = await rawgResponse.json();
+                if (steamResponse.ok) {
+                    steam.value = await steamResponse.json();
                 }
             } catch {
                 // enrichment is optional
             }
 
-            rawgLoading.value = false;
+            steamLoading.value = false;
         }
     } catch {
         // handle error
@@ -603,22 +597,22 @@ onMounted(async () => {
                             {{ title }}
                         </h1>
 
-                        <!-- RAWG metadata tags -->
-                        <div v-if="rawg" class="mt-2 flex flex-wrap items-center gap-2">
+                        <!-- Steam metadata tags -->
+                        <div v-if="steam" class="mt-2 flex flex-wrap items-center gap-2">
                             <span
-                                v-for="genre in rawg.genres"
+                                v-for="genre in steam.genres"
                                 :key="genre"
                                 class="rounded-full border border-dealytics-purple/60 bg-black/70 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-md"
                             >
                                 {{ genre }}
                             </span>
-                            <span v-if="rawgReleaseDate" class="flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
+                            <span v-if="steamReleaseDate" class="flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
                                 <Calendar class="size-2.5" />
-                                {{ rawgReleaseDate }}
+                                {{ steamReleaseDate }}
                             </span>
-                            <span v-if="rawg.rating > 0" class="flex items-center gap-1 rounded-full border border-dealytics-cyan/50 bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-dealytics-cyan backdrop-blur-md">
+                            <span v-if="steam.rating > 0" class="flex items-center gap-1 rounded-full border border-dealytics-cyan/50 bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-dealytics-cyan backdrop-blur-md">
                                 <Star class="size-2.5 fill-dealytics-cyan" />
-                                {{ rawg.rating.toFixed(1) }}/5
+                                {{ steam.rating.toFixed(1) }}/5
                             </span>
                         </div>
 
@@ -655,8 +649,8 @@ onMounted(async () => {
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Left column: about + screenshots + offers -->
                 <div class="min-w-0 space-y-6 lg:col-span-2">
-                    <!-- RAWG Description -->
-                    <div v-if="rawgLoading" class="border-gradient rounded-xl p-6">
+                    <!-- Steam Description -->
+                    <div v-if="steamLoading" class="border-gradient rounded-xl p-6">
                         <div class="mb-3 h-5 w-40 animate-pulse rounded bg-secondary" />
                         <div class="space-y-2">
                             <div class="h-3 w-full animate-pulse rounded bg-secondary" />
@@ -664,7 +658,7 @@ onMounted(async () => {
                             <div class="h-3 w-4/6 animate-pulse rounded bg-secondary" />
                         </div>
                     </div>
-                    <div v-else-if="rawg?.description" v-reveal class="border-gradient rounded-xl p-6">
+                    <div v-else-if="steam?.description" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-3 flex items-center gap-2">
                             <Gamepad2 class="size-4 text-dealytics-purple" />
                             <h2 class="font-heading text-lg font-semibold">À propos</h2>
@@ -673,7 +667,7 @@ onMounted(async () => {
                             <div
                                 class="game-description text-sm leading-relaxed text-muted-foreground"
                                 :class="shortDescription && descriptionIsLong ? 'max-h-48 overflow-hidden' : ''"
-                                v-html="rawg.description"
+                                v-html="steam.description"
                             />
                             <div
                                 v-if="shortDescription && descriptionIsLong"
@@ -689,12 +683,12 @@ onMounted(async () => {
                         </button>
 
                         <!-- Platforms & Developers inline -->
-                        <div v-if="rawg.platforms.length || rawg.developers.length" class="mt-4 flex flex-wrap gap-4 border-t border-border/50 pt-4">
-                            <div v-if="rawg.platforms.length" class="flex items-start gap-2">
+                        <div v-if="steam.platforms.length || steam.developers.length" class="mt-4 flex flex-wrap gap-4 border-t border-border/50 pt-4">
+                            <div v-if="steam.platforms.length" class="flex items-start gap-2">
                                 <Monitor class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                                 <div class="flex flex-wrap gap-1">
                                     <span
-                                        v-for="p in rawg.platforms"
+                                        v-for="p in steam.platforms"
                                         :key="p"
                                         class="rounded bg-secondary/80 px-1.5 py-0.5 text-[10px] text-muted-foreground"
                                     >
@@ -702,16 +696,16 @@ onMounted(async () => {
                                     </span>
                                 </div>
                             </div>
-                            <div v-if="rawg.developers.length" class="flex items-start gap-2">
+                            <div v-if="steam.developers.length" class="flex items-start gap-2">
                                 <Code class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                                <span class="text-xs text-muted-foreground">{{ rawg.developers.join(', ') }}</span>
+                                <span class="text-xs text-muted-foreground">{{ steam.developers.join(', ') }}</span>
                             </div>
                         </div>
 
                         <!-- Tags -->
-                        <div v-if="rawg.tags.length" class="mt-3 flex flex-wrap gap-1.5">
+                        <div v-if="steam.tags.length" class="mt-3 flex flex-wrap gap-1.5">
                             <span
-                                v-for="tag in rawg.tags"
+                                v-for="tag in steam.tags"
                                 :key="tag"
                                 class="flex items-center gap-1 rounded-full bg-secondary/60 px-2 py-0.5 text-[10px] text-muted-foreground"
                             >
@@ -721,17 +715,17 @@ onMounted(async () => {
                         </div>
                     </div>
 
-                    <!-- RAWG Screenshots Gallery -->
-                    <div v-if="rawgLoading" class="border-gradient rounded-xl p-6">
+                    <!-- Steam Screenshots Gallery -->
+                    <div v-if="steamLoading" class="border-gradient rounded-xl p-6">
                         <div class="mb-3 h-5 w-32 animate-pulse rounded bg-secondary" />
                         <div class="aspect-video w-full animate-pulse rounded-lg bg-secondary" />
                     </div>
-                    <div v-else-if="rawg?.screenshots?.length" v-reveal class="border-gradient rounded-xl p-6">
+                    <div v-else-if="steam?.screenshots?.length" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-3 flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <ImageIcon class="size-4 text-dealytics-cyan" />
                                 <h2 class="font-heading text-lg font-semibold">Screenshots</h2>
-                                <span class="text-xs text-muted-foreground">({{ screenshotIndex + 1 }}/{{ rawg.screenshots.length }})</span>
+                                <span class="text-xs text-muted-foreground">({{ screenshotIndex + 1 }}/{{ steam.screenshots.length }})</span>
                             </div>
                             <div class="flex gap-1.5">
                                 <button
@@ -752,16 +746,16 @@ onMounted(async () => {
                             <Transition name="screenshot-fade" mode="out-in">
                                 <img
                                     :key="screenshotIndex"
-                                    :src="rawg.screenshots[screenshotIndex]"
+                                    :src="steam.screenshots[screenshotIndex]"
                                     :alt="`Screenshot ${screenshotIndex + 1}`"
                                     class="aspect-video w-full object-cover"
                                 />
                             </Transition>
                         </div>
                         <!-- Thumbnail strip -->
-                        <div v-if="rawg.screenshots.length > 1" class="mt-3 flex gap-2 overflow-x-auto">
+                        <div v-if="steam.screenshots.length > 1" class="mt-3 flex gap-2 overflow-x-auto">
                             <button
-                                v-for="(url, idx) in rawg.screenshots"
+                                v-for="(url, idx) in steam.screenshots"
                                 :key="idx"
                                 class="shrink-0 overflow-hidden rounded-md border-2 transition-all"
                                 :class="idx === screenshotIndex ? 'border-dealytics-cyan opacity-100' : 'border-transparent opacity-50 hover:opacity-75'"
@@ -1142,41 +1136,34 @@ onMounted(async () => {
                                 <dt class="text-muted-foreground">Réduction max</dt>
                                 <dd class="font-medium text-dealytics-pink">-{{ savingsPercent }}%</dd>
                             </div>
-                            <!-- RAWG enriched info -->
-                            <template v-if="rawg">
-                                <div v-if="rawg.metacritic" class="flex justify-between">
+                            <!-- Steam enriched info -->
+                            <template v-if="steam">
+                                <div v-if="steam.metacritic" class="flex justify-between">
                                     <dt class="text-muted-foreground">Metacritic</dt>
-                                    <dd class="font-bold" :class="rawg.metacritic >= 75 ? 'text-green-400' : rawg.metacritic >= 50 ? 'text-yellow-400' : 'text-red-400'">
-                                        {{ rawg.metacritic }}/100
+                                    <dd class="font-bold" :class="steam.metacritic >= 75 ? 'text-green-400' : steam.metacritic >= 50 ? 'text-yellow-400' : 'text-red-400'">
+                                        {{ steam.metacritic }}/100
                                     </dd>
                                 </div>
-                                <div v-if="rawg.playtime > 0" class="flex justify-between">
-                                    <dt class="flex items-center gap-1.5 text-muted-foreground">
-                                        <Clock class="size-3" />
-                                        Durée moyenne
-                                    </dt>
-                                    <dd class="font-medium">{{ rawg.playtime }}h</dd>
-                                </div>
-                                <div v-if="rawg.rating > 0" class="flex justify-between">
-                                    <dt class="text-muted-foreground">{{ ratingLabel }}</dt>
+                                <div v-if="steam.rating > 0" class="flex justify-between">
+                                    <dt class="text-muted-foreground">Note Steam</dt>
                                     <dd class="flex items-center gap-1 font-medium">
                                         <Star class="size-3 fill-yellow-400 text-yellow-400" />
-                                        {{ rawg.rating.toFixed(1) }}/5
-                                        <span class="text-[10px] text-muted-foreground">({{ rawg.ratings_count }})</span>
+                                        {{ steam.rating.toFixed(1) }}/5
+                                        <span class="text-[10px] text-muted-foreground">({{ steam.ratings_count }})</span>
                                     </dd>
                                 </div>
-                                <div v-if="rawg.website" class="flex justify-between">
+                                <div v-if="steam.website" class="flex justify-between">
                                     <dt class="text-muted-foreground">Site officiel</dt>
                                     <dd>
-                                        <a :href="rawg.website" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-xs text-dealytics-purple hover:underline">
+                                        <a :href="steam.website" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-xs text-dealytics-purple hover:underline">
                                             Visiter
                                             <ExternalLink class="size-2.5" />
                                         </a>
                                     </dd>
                                 </div>
                             </template>
-                            <!-- RAWG loading skeleton in sidebar -->
-                            <template v-else-if="rawgLoading">
+                            <!-- Steam loading skeleton in sidebar -->
+                            <template v-else-if="steamLoading">
                                 <div class="flex justify-between">
                                     <div class="h-3 w-20 animate-pulse rounded bg-secondary" />
                                     <div class="h-3 w-12 animate-pulse rounded bg-secondary" />

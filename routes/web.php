@@ -84,7 +84,7 @@ Route::get('api/stats', [StatsController::class, 'index'])->name('stats');
 Route::get('game/{id}', [GameController::class, 'show'])->name('game.show');
 Route::get('api/games', [GameController::class, 'games'])->name('game.search');
 Route::get('api/games/{id}/history', [GameController::class, 'history'])->whereNumber('id')->name('game.history');
-Route::get('api/rawg/{title}', [GameController::class, 'rawg'])->name('game.rawg');
+Route::get('api/steam/{title}', [GameController::class, 'steam'])->name('game.steam');
 Route::get('api/nexarda/game/{id}', [GameController::class, 'nexardaById'])->whereNumber('id')->name('game.nexarda.id');
 Route::get('api/nexarda/{title}', [GameController::class, 'nexarda'])->name('game.nexarda');
 

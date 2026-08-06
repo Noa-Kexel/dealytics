@@ -23,31 +23,4 @@ class GameDescriptionFormatter
 
         return trim($html);
     }
-
-    /**
-     * Turn plain-text descriptions (RAWG) into simple HTML paragraphs.
-     */
-    public static function fromPlainText(string $text): string
-    {
-        $text = trim($text);
-
-        if ($text === '') {
-            return '';
-        }
-
-        $paragraphs = preg_split('/\R{2,}/', $text) ?: [];
-
-        $html = collect($paragraphs)
-            ->map(fn (string $paragraph) => trim($paragraph))
-            ->filter()
-            ->map(function (string $paragraph): string {
-                $escaped = htmlspecialchars($paragraph, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $escaped = nl2br($escaped, false);
-
-                return "<p>{$escaped}</p>";
-            })
-            ->implode('');
-
-        return $html;
-    }
 }

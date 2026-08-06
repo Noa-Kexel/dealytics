@@ -35,11 +35,6 @@ return [
         ],
     ],
 
-    'rawg' => [
-        'key' => env('RAWG_API_KEY'),
-        'base_url' => 'https://api.rawg.io/api',
-    ],
-
     'nexarda' => [
         'base_url' => 'https://www.nexarda.com/api/v3',
     ],

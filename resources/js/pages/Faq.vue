@@ -33,7 +33,7 @@ const categories: FaqCategory[] = [
             {
                 id: 'sources',
                 question: "D'où viennent les prix affichés ?",
-                answer: 'Les données proviennent de services spécialisés : <strong>Nexarda</strong> et <strong>IsThereAnyDeal</strong> pour les prix et leur historique, <strong>RAWG</strong> pour les fiches de jeux et les visuels, et <strong>Steam</strong> pour les informations de boutique. Le détail figure dans les <a href="/mentions-legales#sources">mentions légales</a>.',
+                answer: 'Les données proviennent de services spécialisés : <strong>Nexarda</strong> et <strong>IsThereAnyDeal</strong> pour les prix et leur historique, et <strong>Steam</strong> pour les fiches de jeux, les visuels et les informations de boutique. Le détail figure dans les <a href="/mentions-legales#sources">mentions légales</a>.',
             },
             {
                 id: 'temps-reel',

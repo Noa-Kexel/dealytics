@@ -32,7 +32,7 @@ class LegalPagesTest extends TestCase
                 ->component($component)
                 ->has('legal.editor.name')
                 ->has('legal.host.name')
-                ->has('legal.dataSources', 4)
+                ->has('legal.dataSources', count(config('legal.data_sources')))
                 ->where('legal.updatedAt', config('legal.updated_at')),
             );
     }
