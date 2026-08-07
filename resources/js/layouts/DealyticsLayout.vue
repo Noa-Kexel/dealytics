@@ -81,6 +81,7 @@ const serviceLinks = [
     { title: 'Favoris', href: '/favorites' },
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'FAQ', href: '/faq' },
+    { title: 'Contact', href: '/contact' },
 ];
 
 const legalLinks = [

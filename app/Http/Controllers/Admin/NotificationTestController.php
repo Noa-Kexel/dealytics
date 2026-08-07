@@ -33,6 +33,18 @@ class NotificationTestController extends Controller
         'price-alert' => 'Alerte de prix atteinte',
         'verify-email' => 'Vérification de l\'adresse e-mail',
         'reset-password' => 'Réinitialisation du mot de passe',
+        'contact-received' => 'Contact — copie pour l\'équipe',
+        'contact-confirmation' => 'Contact — accusé de réception',
+    ];
+
+    /**
+     * Message d'exemple utilisé pour l'aperçu des deux e-mails de contact.
+     */
+    private const SAMPLE_CONTACT = [
+        'name' => 'Camille Dubois',
+        'email' => 'camille.dubois@exemple.com',
+        'subject' => 'Un prix affiché me semble incorrect',
+        'message' => "Bonjour,\n\nSur la fiche de Hollow Knight, le prix indiqué pour la boutique Fanatical est de 4,99 € alors que je trouve 7,49 € sur leur site.\n\nEst-ce un décalage de mise à jour ou une erreur ?\n\nMerci d'avance !",
     ];
 
     public function index(): Response
@@ -130,6 +142,23 @@ class NotificationTestController extends Controller
                 'email' => $user->email,
                 'url' => url('/reset-password/jeton-d-exemple?email='.urlencode($user->email)),
                 'expiresInMinutes' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60),
+            ],
+            'contact-received' => [
+                'senderName' => self::SAMPLE_CONTACT['name'],
+                'senderEmail' => self::SAMPLE_CONTACT['email'],
+                'subjectLine' => self::SAMPLE_CONTACT['subject'],
+                'body' => self::SAMPLE_CONTACT['message'],
+                'sentAt' => now(),
+                'isMember' => true,
+                'adminUrl' => route('admin.contact.index'),
+            ],
+            'contact-confirmation' => [
+                'senderName' => self::SAMPLE_CONTACT['name'],
+                'subjectLine' => self::SAMPLE_CONTACT['subject'],
+                'body' => self::SAMPLE_CONTACT['message'],
+                'sentAt' => now(),
+                'faqUrl' => route('faq'),
+                'homeUrl' => url('/'),
             ],
         };
     }

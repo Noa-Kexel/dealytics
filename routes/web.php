@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\ContactController as AdminContactController;
 use App\Http\Controllers\Admin\NotificationTestController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\GameController;
@@ -13,11 +15,18 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SteamWishlistController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::inertia('/', 'Home')->name('home');
 Route::redirect('/search', '/');
 
 Route::get('faq', FaqController::class)->name('faq');
+
+// Formulaire de contact public. L'envoi est limité pour décourager le spam.
+Route::get('contact', [ContactController::class, 'show'])->name('contact');
+Route::post('contact', [ContactController::class, 'store'])
+    ->middleware('throttle:10,60')
+    ->name('contact.store');
 
 // Pages légales (accessibles sans compte, référencées dans le pied de page et les e-mails).
 Route::get('mentions-legales', [LegalController::class, 'notice'])->name('legal.notice');
@@ -33,6 +42,10 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::put('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        Route::get('contact', [AdminContactController::class, 'index'])->name('contact.index');
+        Route::patch('contact/{contactMessage}/read', [AdminContactController::class, 'toggleRead'])->name('contact.read');
+        Route::delete('contact/{contactMessage}', [AdminContactController::class, 'destroy'])->name('contact.destroy');
 
         Route::get('notifications', [NotificationTestController::class, 'index'])->name('notifications.index');
         Route::post('notifications/test', [NotificationTestController::class, 'send'])->name('notifications.test');
@@ -87,5 +100,16 @@ Route::get('api/games/{id}/history', [GameController::class, 'history'])->whereN
 Route::get('api/steam/{title}', [GameController::class, 'steam'])->name('game.steam');
 Route::get('api/nexarda/game/{id}', [GameController::class, 'nexardaById'])->whereNumber('id')->name('game.nexarda.id');
 Route::get('api/nexarda/{title}', [GameController::class, 'nexarda'])->name('game.nexarda');
+
+// Aperçu des pages d'erreur, uniquement en développement : en debug local les
+// vraies erreurs affichent la trace de Laravel, ce qui empêche de les relire.
+// Ces routes n'existent pas en production.
+if (app()->isLocal()) {
+    Route::get('_erreur/{status}', fn (int $status) => Inertia::render('Error', ['status' => $status]))
+        ->whereNumber('status');
+
+    Route::get('_erreur/statique/{status}', fn (int $status) => view("errors.{$status}"))
+        ->whereIn('status', ['500', '503']);
+}
 
 require __DIR__.'/settings.php';
