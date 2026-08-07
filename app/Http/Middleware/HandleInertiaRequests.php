@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ContactMessage;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -46,6 +47,11 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Pastille « messages non lus » des onglets du panel : calculée
+            // uniquement pour les comptes qui y ont accès.
+            'contactUnread' => fn () => $request->user()?->canAccessAdminPanel()
+                ? ContactMessage::query()->unread()->count()
+                : 0,
         ];
     }
 }

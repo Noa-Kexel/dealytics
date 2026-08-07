@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { Users, Bell } from 'lucide-vue-next';
+import { Users, Bell, Mail } from 'lucide-vue-next';
 import type { LucideIcon } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -8,14 +8,17 @@ interface AdminTab {
     label: string;
     href: string;
     icon: LucideIcon;
+    // Prop partagée qui alimente la pastille de comptage, si l'onglet en a une.
+    badge?: 'contactUnread';
 }
 
 const tabs: AdminTab[] = [
     { label: 'Utilisateurs', href: '/admin/users', icon: Users },
+    { label: 'Contact', href: '/admin/contact', icon: Mail, badge: 'contactUnread' },
     { label: 'Test notifications', href: '/admin/notifications', icon: Bell },
 ];
 
-const page = usePage();
+const page = usePage<{ contactUnread?: number }>();
 
 const currentPath = computed(() => {
     try {
@@ -27,6 +30,10 @@ const currentPath = computed(() => {
 
 function isActive(href: string): boolean {
     return currentPath.value === href || currentPath.value.startsWith(href + '/');
+}
+
+function badgeCount(tab: AdminTab): number {
+    return tab.badge ? (page.props[tab.badge] ?? 0) : 0;
 }
 </script>
 
@@ -43,6 +50,12 @@ function isActive(href: string): boolean {
         >
             <component :is="tab.icon" class="size-4" />
             {{ tab.label }}
+            <span
+                v-if="badgeCount(tab) > 0"
+                class="ml-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-dealytics-pink px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+            >
+                {{ badgeCount(tab) }}
+            </span>
         </Link>
     </div>
 </template>

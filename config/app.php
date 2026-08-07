@@ -78,11 +78,14 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    // L'interface n'existe qu'en français : les deux valeurs pointent sur « fr »
+    // par défaut. Attention, APP_LOCALE dans le .env l'emporte sur ce défaut —
+    // un serveur resté sur « en » affichera les messages anglais de Laravel.
+    'locale' => env('APP_LOCALE', 'fr'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'fr'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'fr_FR'),
 
     /*
     |--------------------------------------------------------------------------

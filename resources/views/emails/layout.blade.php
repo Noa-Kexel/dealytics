@@ -1,3 +1,10 @@
+@php
+    // Ligne de pied de page par défaut. Les e-mails adressés à des non-membres
+    // (formulaire de contact) la remplacent via @section('footer_reason').
+    $appHost = parse_url(config('app.url'), PHP_URL_HOST) ?: config('app.url');
+    $defaultFooterReason = 'Vous recevez cet e-mail parce que vous avez un compte sur '
+        .'<a href="'.url('/').'" style="color:#A855F7; text-decoration:none;">'.e($appHost).'</a>.';
+@endphp
 <!DOCTYPE html>
 <html lang="fr" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -94,8 +101,7 @@
                                 <tr>
                                     <td align="center" style="font-size:11px; line-height:18px; color:#5C5772; font-family:'Segoe UI', Helvetica, Arial, sans-serif;">
                                         &copy; {{ date('Y') }} {{ config('app.name') }} &mdash; Suivi de prix des jeux vidéo.<br>
-                                        Vous recevez cet e-mail parce que vous avez un compte sur
-                                        <a href="{{ url('/') }}" style="color:#A855F7; text-decoration:none;">{{ parse_url(config('app.url'), PHP_URL_HOST) ?: config('app.url') }}</a>.
+                                        @yield('footer_reason', $defaultFooterReason)
                                     </td>
                                 </tr>
                             </table>
