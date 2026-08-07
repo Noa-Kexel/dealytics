@@ -44,4 +44,22 @@ return [
         'base_url' => 'https://api.isthereanydeal.com',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cloudflare Turnstile
+    |--------------------------------------------------------------------------
+    |
+    | Protection anti-bot du formulaire de contact. Créer un widget sur
+    | https://dash.cloudflare.com/ → Turnstile, puis coller les clés ici.
+    | Sans les deux clés (ou avec TURNSTILE_ENABLED=false), la vérification
+    | est ignorée — utile en local / tests.
+    |
+    */
+    'turnstile' => [
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+        'enabled' => filter_var(env('TURNSTILE_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'verify_url' => 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    ],
+
 ];

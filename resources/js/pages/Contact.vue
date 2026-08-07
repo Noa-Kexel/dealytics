@@ -8,8 +8,9 @@ import {
     Send,
     ShieldCheck,
 } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import TurnstileWidget from '@/components/TurnstileWidget.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,10 +18,13 @@ import { vReveal } from '@/directives/reveal';
 
 const props = defineProps<{
     contactEmail: string;
+    turnstileSiteKey: string | null;
     defaults: { name: string; email: string };
 }>();
 
 const page = usePage<{ flash?: { success?: string } }>();
+
+const turnstileRef = ref<{ reset: () => void } | null>(null);
 
 const form = useForm({
     name: props.defaults.name,
@@ -29,6 +33,7 @@ const form = useForm({
     message: '',
     // Piège à robots : masqué, doit rester vide (validé côté serveur).
     website: '',
+    turnstile_token: '',
 });
 
 const successMessage = computed(() => page.props.flash?.success ?? '');
@@ -39,7 +44,10 @@ function submit() {
     form.post('/contact', {
         preserveScroll: true,
         onSuccess: () => {
-            form.reset('subject', 'message');
+            form.reset('subject', 'message', 'turnstile_token');
+        },
+        onError: () => {
+            turnstileRef.value?.reset();
         },
     });
 }
@@ -188,6 +196,16 @@ function writeAnother() {
                         />
                     </div>
                     <InputError :message="form.errors.website" />
+
+                    <div v-if="turnstileSiteKey" class="grid gap-2">
+                        <TurnstileWidget
+                            ref="turnstileRef"
+                            v-model="form.turnstile_token"
+                            :site-key="turnstileSiteKey"
+                            theme="auto"
+                        />
+                        <InputError :message="form.errors.turnstile_token" />
+                    </div>
 
                     <div class="flex flex-wrap items-center gap-3 pt-1">
                         <Button
