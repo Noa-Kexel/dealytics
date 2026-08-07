@@ -7,6 +7,7 @@ use App\Mail\ContactMessageReceived;
 use App\Models\ContactMessage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -29,6 +30,15 @@ class ContactTest extends TestCase
         ];
     }
 
+    private function enableTurnstile(): void
+    {
+        config([
+            'services.turnstile.enabled' => true,
+            'services.turnstile.site_key' => 'test-site-key',
+            'services.turnstile.secret_key' => 'test-secret-key',
+        ]);
+    }
+
     public function test_contact_page_is_public(): void
     {
         $this->get(route('contact'))
@@ -36,8 +46,20 @@ class ContactTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('Contact')
                 ->where('contactEmail', config('legal.editor.email'))
+                ->where('turnstileSiteKey', null)
                 ->where('defaults.name', '')
                 ->where('defaults.email', ''),
+            );
+    }
+
+    public function test_contact_page_exposes_the_turnstile_site_key_when_configured(): void
+    {
+        $this->enableTurnstile();
+
+        $this->get(route('contact'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('turnstileSiteKey', 'test-site-key'),
             );
     }
 
@@ -121,6 +143,57 @@ class ContactTest extends TestCase
 
         $this->assertDatabaseCount('contact_messages', 0);
         Mail::assertNothingQueued();
+    }
+
+    public function test_turnstile_is_required_when_enabled(): void
+    {
+        Mail::fake();
+        $this->enableTurnstile();
+
+        $this->post(route('contact.store'), $this->payload())
+            ->assertSessionHasErrors('turnstile_token');
+
+        $this->assertDatabaseCount('contact_messages', 0);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_turnstile_rejects_an_invalid_token(): void
+    {
+        Mail::fake();
+        $this->enableTurnstile();
+
+        Http::fake([
+            config('services.turnstile.verify_url') => Http::response(['success' => false], 200),
+        ]);
+
+        $this->post(route('contact.store'), $this->payload([
+            'turnstile_token' => 'token-invalide',
+        ]))->assertSessionHasErrors('turnstile_token');
+
+        $this->assertDatabaseCount('contact_messages', 0);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_turnstile_accepts_a_valid_token(): void
+    {
+        Mail::fake();
+        $this->enableTurnstile();
+
+        Http::fake([
+            config('services.turnstile.verify_url') => Http::response(['success' => true], 200),
+        ]);
+
+        $this->post(route('contact.store'), $this->payload([
+            'turnstile_token' => 'token-valide',
+        ]))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseCount('contact_messages', 1);
+
+        Http::assertSent(fn ($request) => $request->url() === config('services.turnstile.verify_url')
+            && $request['response'] === 'token-valide'
+            && $request['secret'] === 'test-secret-key');
     }
 
     public function test_the_admin_panel_lists_the_messages(): void

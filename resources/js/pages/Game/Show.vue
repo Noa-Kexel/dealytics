@@ -623,6 +623,7 @@ onMounted(async () => {
                                 :lowest-price="lowestEver"
                                 :normal-price="normalPrice"
                                 :savings="savingsPercent"
+                                :at-lowest="isAtLowest"
                             />
 
                             <!-- Price -->

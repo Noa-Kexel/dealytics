@@ -6,6 +6,7 @@ use App\Http\Requests\StoreContactMessageRequest;
 use App\Mail\ContactMessageConfirmation;
 use App\Mail\ContactMessageReceived;
 use App\Models\ContactMessage;
+use App\Rules\Turnstile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -23,6 +24,9 @@ class ContactController extends Controller
 
         return Inertia::render('Contact', [
             'contactEmail' => config('legal.editor.email'),
+            'turnstileSiteKey' => Turnstile::isEnabled()
+                ? config('services.turnstile.site_key')
+                : null,
             'defaults' => [
                 'name' => $user?->name ?? '',
                 'email' => $user?->email ?? '',
