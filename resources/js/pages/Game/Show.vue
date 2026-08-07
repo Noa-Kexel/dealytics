@@ -344,6 +344,8 @@ function cheapestOffer(offers: NexardaOffer[], official?: boolean): NexardaOffer
 }
 
 const selectedOfferPlatform = ref('all');
+const offersPage = ref(1);
+const OFFERS_PER_PAGE = 10;
 
 const offerPlatforms = computed(() => {
     const counts = new Map<string, number>();
@@ -371,15 +373,93 @@ const filteredOffers = computed(() => {
     return offers.filter((offer) => extractOfferPlatform(offer) === selectedOfferPlatform.value);
 });
 
+const offersTotalPages = computed(() =>
+    Math.max(1, Math.ceil(filteredOffers.value.length / OFFERS_PER_PAGE)),
+);
+
+const paginatedOffers = computed(() => {
+    const start = (offersPage.value - 1) * OFFERS_PER_PAGE;
+
+    return filteredOffers.value.slice(start, start + OFFERS_PER_PAGE);
+});
+
+const offersPageLabel = computed(() => {
+    const total = filteredOffers.value.length;
+
+    if (total === 0) {
+        return '';
+    }
+
+    const start = (offersPage.value - 1) * OFFERS_PER_PAGE + 1;
+    const end = Math.min(offersPage.value * OFFERS_PER_PAGE, total);
+
+    return `${start}–${end} sur ${total}`;
+});
+
+/** Sliding window of page numbers (with null = ellipsis) when many pages. */
+const offersPageNumbers = computed(() => {
+    const total = offersTotalPages.value;
+    const current = offersPage.value;
+
+    if (total <= 7) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const pages: (number | null)[] = [1];
+
+    const windowStart = Math.max(2, current - 1);
+    const windowEnd = Math.min(total - 1, current + 1);
+
+    if (windowStart > 2) {
+        pages.push(null);
+    }
+
+    for (let page = windowStart; page <= windowEnd; page++) {
+        pages.push(page);
+    }
+
+    if (windowEnd < total - 1) {
+        pages.push(null);
+    }
+
+    pages.push(total);
+
+    return pages;
+});
+
 const filteredBestOfficialPrice = computed(() => cheapestOffer(filteredOffers.value, true));
 const filteredBestKeyshopPrice = computed(() => cheapestOffer(filteredOffers.value, false));
+
+const offersListEl = ref<HTMLElement | null>(null);
+
+function goToOffersPage(page: number): void {
+    const next = Math.min(Math.max(1, page), offersTotalPages.value);
+
+    if (next === offersPage.value) {
+        return;
+    }
+
+    offersPage.value = next;
+    offersListEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 watch(
     () => nexarda.value?.offers,
     () => {
         selectedOfferPlatform.value = 'all';
+        offersPage.value = 1;
     },
 );
+
+watch(selectedOfferPlatform, () => {
+    offersPage.value = 1;
+});
+
+watch(offersTotalPages, (total) => {
+    if (offersPage.value > total) {
+        offersPage.value = total;
+    }
+});
 
 // Quality/price score (/100) — combines Steam quality and current discount.
 const hasQualityData = computed(() =>
@@ -944,10 +1024,10 @@ onMounted(async () => {
                         </div>
 
                         <!-- Full offer list -->
-                        <div v-if="filteredOffers.length" class="space-y-2">
+                        <div v-if="filteredOffers.length" ref="offersListEl" class="space-y-2 scroll-mt-24">
                             <a
-                                v-for="(offer, idx) in filteredOffers"
-                                :key="idx"
+                                v-for="(offer, idx) in paginatedOffers"
+                                :key="`${offer.store}-${offer.price}-${idx}`"
                                 :href="offer.url || '#'"
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -1011,6 +1091,58 @@ onMounted(async () => {
                         </div>
                         <div v-else class="rounded-lg bg-secondary/30 py-8 text-center text-sm text-muted-foreground">
                             Aucune offre pour cette plateforme.
+                        </div>
+
+                        <!-- Offers pagination -->
+                        <div
+                            v-if="offersTotalPages > 1"
+                            class="mt-4 flex flex-wrap items-center justify-between gap-3"
+                        >
+                            <p class="text-xs text-muted-foreground">
+                                {{ offersPageLabel }}
+                            </p>
+                            <div class="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    class="inline-flex size-8 items-center justify-center rounded-lg border border-border/50 bg-secondary/30 text-muted-foreground transition-colors hover:border-dealytics-purple/40 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                                    :disabled="offersPage <= 1"
+                                    aria-label="Page précédente"
+                                    @click="goToOffersPage(offersPage - 1)"
+                                >
+                                    <ChevronLeft class="size-4" />
+                                </button>
+                                <template v-for="(pageNum, pageIdx) in offersPageNumbers" :key="pageNum ?? `ellipsis-${pageIdx}`">
+                                    <span
+                                        v-if="pageNum === null"
+                                        class="inline-flex size-8 items-center justify-center text-xs text-muted-foreground"
+                                        aria-hidden="true"
+                                    >
+                                        …
+                                    </span>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        class="inline-flex size-8 items-center justify-center rounded-lg border text-xs font-medium transition-colors"
+                                        :class="offersPage === pageNum
+                                            ? 'border-dealytics-purple bg-dealytics-purple/20 text-dealytics-purple'
+                                            : 'border-border/50 bg-secondary/30 text-muted-foreground hover:border-dealytics-purple/40 hover:text-foreground'"
+                                        :aria-current="offersPage === pageNum ? 'page' : undefined"
+                                        :aria-label="`Page ${pageNum}`"
+                                        @click="goToOffersPage(pageNum)"
+                                    >
+                                        {{ pageNum }}
+                                    </button>
+                                </template>
+                                <button
+                                    type="button"
+                                    class="inline-flex size-8 items-center justify-center rounded-lg border border-border/50 bg-secondary/30 text-muted-foreground transition-colors hover:border-dealytics-purple/40 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                                    :disabled="offersPage >= offersTotalPages"
+                                    aria-label="Page suivante"
+                                    @click="goToOffersPage(offersPage + 1)"
+                                >
+                                    <ChevronRight class="size-4" />
+                                </button>
+                            </div>
                         </div>
 
                         <p class="mt-3 text-center text-[10px] text-muted-foreground/60">
