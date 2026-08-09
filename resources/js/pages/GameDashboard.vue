@@ -344,7 +344,10 @@ onMounted(async () => {
                 </div>
                 <Dialog>
                     <DialogTrigger as-child>
-                        <Button variant="outline" size="sm" class="w-full gap-2 text-xs">
+                        <Button
+                            size="sm"
+                            class="w-full gap-2 border border-dealytics-purple/40 bg-dealytics-purple/15 text-xs text-dealytics-purple hover:border-dealytics-purple/60 hover:bg-dealytics-purple/25 hover:text-dealytics-purple"
+                        >
                             <Plus class="size-3.5" />
                             Ajouter un achat
                         </Button>
