@@ -89,4 +89,47 @@ class PriceAlertNotificationTest extends TestCase
             ->assertJsonPath('0.type', 'price_alert')
             ->assertJsonPath('0.game_id', '789');
     }
+
+    public function test_user_can_delete_one_of_their_notifications(): void
+    {
+        $user = User::factory()->create();
+
+        $alert = $user->priceAlerts()->create([
+            'game_id' => '789',
+            'title' => 'Notify Me',
+            'target_price' => 25.00,
+        ]);
+
+        $user->notify(new PriceAlertReached($alert, 19.99));
+
+        $notification = $user->notifications()->firstOrFail();
+
+        $this->actingAs($user)
+            ->deleteJson("/api/notifications/{$notification->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('notifications', ['id' => $notification->id]);
+    }
+
+    public function test_user_cannot_delete_someone_elses_notification(): void
+    {
+        $owner = User::factory()->create();
+        $intruder = User::factory()->create();
+
+        $alert = $owner->priceAlerts()->create([
+            'game_id' => '789',
+            'title' => 'Notify Me',
+            'target_price' => 25.00,
+        ]);
+
+        $owner->notify(new PriceAlertReached($alert, 19.99));
+
+        $notification = $owner->notifications()->firstOrFail();
+
+        $this->actingAs($intruder)
+            ->deleteJson("/api/notifications/{$notification->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('notifications', ['id' => $notification->id]);
+    }
 }

@@ -100,7 +100,7 @@
                                 </tr>
                                 <tr>
                                     <td align="center" style="font-size:11px; line-height:18px; color:#5C5772; font-family:'Segoe UI', Helvetica, Arial, sans-serif;">
-                                        &copy; {{ date('Y') }} {{ config('app.name') }} &mdash; Suivi de prix des jeux vidéo.<br>
+                                        &copy; {{ date('Y') }} {{ config('app.name') }}, suivi de prix des jeux vidéo.<br>
                                         @yield('footer_reason', $defaultFooterReason)
                                     </td>
                                 </tr>

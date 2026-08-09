@@ -31,8 +31,8 @@ class NotificationTestController extends Controller
         'price-alert' => 'Alerte de prix atteinte',
         'verify-email' => 'Vérification de l\'adresse e-mail',
         'reset-password' => 'Réinitialisation du mot de passe',
-        'contact-received' => 'Contact — copie pour l\'équipe',
-        'contact-confirmation' => 'Contact — accusé de réception',
+        'contact-received' => 'Contact (copie pour l\'équipe)',
+        'contact-confirmation' => 'Contact (accusé de réception)',
     ];
 
     /** Message d'exemple pour les e-mails de contact. */

@@ -258,6 +258,18 @@ const bestOffer = computed(() => {
     );
 });
 
+/** Ouvre l’URL magasin au tap (évite le bug iOS/Android où le lien exige un appui long). */
+function openStoreUrl(url: string | null | undefined, event?: Event) {
+    if (!url) {
+        event?.preventDefault();
+
+        return;
+    }
+
+    event?.preventDefault();
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 const currentPrice = computed(() => nexarda.value?.lowest ?? bestOffer.value?.price ?? 0);
 const savingsPercent = computed(() => Math.round(bestOffer.value?.discount ?? nexarda.value?.maxDiscount ?? 0));
 const normalPrice = computed(
@@ -848,7 +860,7 @@ onMounted(async () => {
                             <div class="flex items-center gap-2">
                                 <Store class="size-4 text-dealytics-pink" />
                                 <h2 class="font-heading text-lg font-semibold">
-                                    Comparer les prix ({{ nexarda.offerCount }} offres — {{ nexarda.storeCount }} stores)
+                                    Comparer les prix ({{ nexarda.offerCount }} offres, {{ nexarda.storeCount }} stores)
                                 </h2>
                             </div>
                             <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -912,10 +924,11 @@ onMounted(async () => {
                             <a
                                 v-for="(offer, idx) in paginatedOffers"
                                 :key="`${offer.store}-${offer.price}-${idx}`"
-                                :href="offer.url || '#'"
+                                :href="offer.url || undefined"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="flex items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
+                                class="flex touch-manipulation items-center justify-between gap-3 rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
+                                @click="openStoreUrl(offer.url, $event)"
                             >
                                 <div class="flex min-w-0 flex-1 items-center gap-3">
                                     <img
@@ -1028,7 +1041,7 @@ onMounted(async () => {
                         </div>
 
                         <p class="mt-3 text-center text-[10px] text-muted-foreground/60">
-                            Les keyshops et marketplaces vendent des clés de revendeurs — prix bas, mais vérifiez la fiabilité du vendeur
+                            Les keyshops et marketplaces vendent des clés de revendeurs (prix bas, mais vérifiez la fiabilité du vendeur)
                         </p>
                     </div>
                     <div v-else v-reveal class="border-gradient rounded-xl p-6 text-center">
@@ -1058,20 +1071,17 @@ onMounted(async () => {
                                 />
                                 {{ isFavorite ? 'Dans vos favoris' : 'Ajouter aux favoris' }}
                             </Button>
-                            <Button
+                            <a
                                 v-if="bestOffer?.url"
-                                class="w-full gap-2 bg-dealytics-cyan text-dealytics-dark hover:bg-dealytics-cyan/90"
-                                as-child
+                                :href="bestOffer.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex h-9 w-full touch-manipulation items-center justify-center gap-2 rounded-md bg-dealytics-cyan px-4 py-2 text-sm font-medium text-dealytics-dark transition-all hover:bg-dealytics-cyan/90"
+                                @click="openStoreUrl(bestOffer.url, $event)"
                             >
-                                <a
-                                    :href="bestOffer.url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <ExternalLink class="size-4" />
-                                    Acheter sur {{ bestOffer.store }}
-                                </a>
-                            </Button>
+                                <ExternalLink class="size-4" />
+                                Acheter sur {{ bestOffer.store }}
+                            </a>
                         </div>
                     </div>
                     <div v-reveal="{ delay: 90 }" class="border-gradient rounded-xl p-6">

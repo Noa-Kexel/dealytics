@@ -120,7 +120,7 @@ function showBrowserNotification(triggered: TriggeredAlert) {
         return;
     }
 
-    new Notification('Dealytics — Alerte prix atteint !', {
+    new Notification('Dealytics : Alerte prix atteint !', {
         body: `${triggered.title} est maintenant à ${triggered.current_price.toFixed(2)}€ (objectif: ${triggered.target_price.toFixed(2)}€)`,
         icon: '/favicon.svg',
     });

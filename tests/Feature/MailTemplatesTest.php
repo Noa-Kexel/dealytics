@@ -52,7 +52,7 @@ class MailTemplatesTest extends TestCase
         $subject = (new PriceAlertReached($alert, 29.99))->toMail($user)->subject;
 
         $this->assertSame(
-            config('app.name').' — Prix cible atteint : Cyberpunk 2077 à 29,99 €',
+            config('app.name').' : Prix cible atteint pour « Cyberpunk 2077 » (29,99 €)',
             $subject,
         );
     }
@@ -73,7 +73,7 @@ class MailTemplatesTest extends TestCase
         $mail = (new VerifyEmail)->toMail($user);
         $html = (string) $mail->render();
 
-        $this->assertSame(config('app.name').' — Confirmez votre adresse e-mail', $mail->subject);
+        $this->assertSame(config('app.name').' : Confirmez votre adresse e-mail', $mail->subject);
         $this->assertStringContainsString('Confirmez votre adresse e-mail', $html);
         $this->assertStringContainsString('Confirmer mon adresse', $html);
         $this->assertStringContainsString('/email/verify/'.$user->id, $html);
@@ -89,7 +89,7 @@ class MailTemplatesTest extends TestCase
         $html = (string) $mail->render();
 
         $this->assertSame(
-            config('app.name').' — Réinitialisation de votre mot de passe',
+            config('app.name').' : Réinitialisation de votre mot de passe',
             $mail->subject,
         );
         $this->assertStringContainsString('Choisir un nouveau mot de passe', $html);

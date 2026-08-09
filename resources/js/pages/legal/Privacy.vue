@@ -70,8 +70,8 @@ const { sections, section } = defineLegalSections([
                 <li>Nom d'affichage et adresse e-mail ;</li>
                 <li>
                     mot de passe, stocké uniquement sous forme d'empreinte
-                    cryptographique (hachage bcrypt) — il n'est jamais lisible,
-                    y compris par l'éditeur ;
+                    cryptographique (hachage bcrypt, jamais lisible, y compris
+                    par l'éditeur) ;
                 </li>
                 <li>
                     rôle du compte, date de vérification de l'adresse e-mail et
@@ -126,28 +126,31 @@ const { sections, section } = defineLegalSections([
             <ul>
                 <li>
                     <strong>Fournir le service</strong> (compte, favoris,
-                    alertes, suivi de budget, notifications) — base légale :
+                    alertes, suivi de budget, notifications), base légale :
                     exécution du contrat, article 6.1.b du RGPD ;
                 </li>
                 <li>
                     <strong>Envoyer les e-mails liés au compte</strong>
                     (vérification d'adresse, réinitialisation de mot de passe,
-                    alerte de prix atteinte) — exécution du contrat ;
+                    alerte de prix atteinte), base légale : exécution du
+                    contrat ;
                 </li>
                 <li>
                     <strong>Assurer la sécurité du service</strong> (limitation
                     du nombre de tentatives, détection d'abus, journalisation
-                    des erreurs) — intérêt légitime, article 6.1.f ;
+                    des erreurs), base légale : intérêt légitime, article
+                    6.1.f ;
                 </li>
                 <li>
-                    <strong>Importer votre liste de souhaits Steam</strong> —
-                    consentement, article 6.1.a, révocable à tout moment en
-                    supprimant l'identifiant depuis votre compte ;
+                    <strong>Importer votre liste de souhaits Steam</strong>,
+                    base légale : consentement, article 6.1.a, révocable à tout
+                    moment en supprimant l'identifiant depuis votre compte ;
                 </li>
                 <li>
                     <strong>Mesurer l'activité globale du site</strong> (nombre
                     de jeux suivis, d'alertes, d'utilisateurs) sous forme de
-                    statistiques agrégées et anonymes — intérêt légitime.
+                    statistiques agrégées et anonymes, base légale : intérêt
+                    légitime.
                 </li>
             </ul>
             <p>
@@ -164,11 +167,11 @@ const { sections, section } = defineLegalSections([
             </p>
             <ul>
                 <li>
-                    <strong>{{ props.legal.host.name }}</strong> — hébergement
+                    <strong>{{ props.legal.host.name }}</strong> : hébergement
                     de l'application et de la base de données ;
                 </li>
                 <li>
-                    <strong>Prestataire d'envoi d'e-mails</strong> —
+                    <strong>Prestataire d'envoi d'e-mails</strong> :
                     acheminement des messages transactionnels (votre adresse
                     e-mail et le contenu du message lui sont transmis).
                 </li>
@@ -228,19 +231,19 @@ const { sections, section } = defineLegalSections([
             </p>
             <ul>
                 <li>
-                    <code>dealytics-session</code> — maintient votre session de
+                    <code>dealytics-session</code> : maintient votre session de
                     navigation (durée : 120 minutes) ;
                 </li>
                 <li>
-                    <code>XSRF-TOKEN</code> — protège les formulaires contre les
+                    <code>XSRF-TOKEN</code> : protège les formulaires contre les
                     attaques de type CSRF ;
                 </li>
                 <li>
-                    <code>remember_web…</code> — déposé uniquement si vous
+                    <code>remember_web…</code> : déposé uniquement si vous
                     cochez « se souvenir de moi » lors de la connexion ;
                 </li>
                 <li>
-                    <code>appearance</code> et <code>sidebar_state</code> —
+                    <code>appearance</code> et <code>sidebar_state</code> :
                     mémorisent vos préférences d'affichage.
                 </li>
             </ul>
@@ -323,7 +326,7 @@ const { sections, section } = defineLegalSections([
             <p>
                 Si vous estimez que vos droits ne sont pas respectés, vous
                 pouvez introduire une réclamation auprès de l'Autorité de
-                protection des données (Rue de la Presse 35, 1000 Bruxelles —
+                protection des données (Rue de la Presse 35, 1000 Bruxelles,
                 <a
                     href="https://www.autoriteprotectiondonnees.be"
                     target="_blank"

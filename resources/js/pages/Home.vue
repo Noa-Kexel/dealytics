@@ -621,17 +621,21 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                     Commencez dès aujourd'hui à économiser
                 </h2>
                 <p class="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                    Rejoignez les milliers de gamers qui ne paient jamais le prix fort
+                    Créez un compte pour suivre vos jeux, recevoir vos alertes de prix
+                    et garder un œil sur votre budget.
                 </p>
                 <Button
                     as-child
                     class="mt-6 gap-2 rounded-xl bg-dealytics-purple px-6 text-white hover:bg-dealytics-deep-purple"
                 >
                     <Link href="/register">
-                        Commencer gratuitement
+                        Créer mon compte
                         <ArrowRight class="size-4" />
                     </Link>
                 </Button>
+                <p class="mt-3 text-xs text-muted-foreground">
+                    Dealytics est entièrement gratuit : aucun abonnement, aucune version payante.
+                </p>
             </div>
         </section>
     </div>

@@ -364,7 +364,7 @@ onMounted(async () => {
                                 <AlertDescription>
                                     Avec cet achat, vous atteindrez {{ projectedMonthlyTotal.toFixed(2) }}€ ce mois-ci,
                                     soit {{ purchaseOverflowAmount.toFixed(2) }}€ au-dessus de votre budget de {{ budget.limit }}€.
-                                    Vous vous êtes fixé une limite — ce n'est pas une bonne idée de la dépasser !
+                                    Vous vous êtes fixé une limite, ce n'est pas une bonne idée de la dépasser !
                                 </AlertDescription>
                             </Alert>
                             <Input v-model="newPurchaseTitle" placeholder="Nom du jeu" class="text-sm" />

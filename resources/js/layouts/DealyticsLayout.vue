@@ -443,8 +443,8 @@ onMounted(async () => {
                     class="mt-10 flex flex-col items-center gap-2 border-t border-border/50 pt-6 text-[11px] text-muted-foreground/60 sm:flex-row sm:justify-between"
                 >
                     <p>
-                        &copy; {{ new Date().getFullYear() }} Dealytics &mdash;
-                        Tous droits réservés
+                        &copy; {{ new Date().getFullYear() }} Dealytics, tous
+                        droits réservés
                     </p>
                     <a
                         href="https://www.linkedin.com/in/noa-kexel-b5942b2a0/"

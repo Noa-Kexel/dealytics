@@ -23,7 +23,7 @@ class ContactMessageConfirmation extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: sprintf(
-                '%s — Nous avons bien reçu votre message',
+                '%s : Nous avons bien reçu votre message',
                 config('app.name'),
             ),
         );

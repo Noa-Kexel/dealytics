@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('api/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('api/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('api/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('api/notifications/{id}', [NotificationController::class, 'destroy']);
 
     // API — Achats
     Route::get('api/purchases', [PurchaseController::class, 'index']);

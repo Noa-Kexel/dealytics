@@ -81,6 +81,35 @@ export function useNotifications() {
         }
     }
 
+    async function deleteNotification(id: string): Promise<void> {
+        if (!authenticated) {
+            return;
+        }
+
+        const index = notifications.value.findIndex((n) => n.id === id);
+
+        if (index === -1) {
+            return;
+        }
+
+        const [removed] = notifications.value.splice(index, 1);
+
+        if (!removed.read_at) {
+            unreadCount.value = Math.max(0, unreadCount.value - 1);
+        }
+
+        try {
+            await api(`/api/notifications/${id}`, { method: 'DELETE' });
+        } catch {
+            // La suppression a échoué côté serveur : on remet la notification en place.
+            notifications.value.splice(index, 0, removed);
+
+            if (!removed.read_at) {
+                unreadCount.value += 1;
+            }
+        }
+    }
+
     function getUnread(): AppNotification[] {
         return notifications.value.filter((n) => !n.read_at);
     }
@@ -92,6 +121,7 @@ export function useNotifications() {
         loadNotifications,
         markAsRead,
         markAllAsRead,
+        deleteNotification,
         getUnread,
     };
 }

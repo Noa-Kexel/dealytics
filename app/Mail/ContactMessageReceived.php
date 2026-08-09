@@ -24,7 +24,7 @@ class ContactMessageReceived extends Mailable implements ShouldQueue
     {
         return new Envelope(
             subject: sprintf(
-                '%s — Nouveau message : %s',
+                '%s : Nouveau message « %s »',
                 config('app.name'),
                 $this->contactMessage->subject,
             ),

@@ -31,6 +31,14 @@ function hide(el: HTMLElement, o: Required<RevealOptions>): void {
     el.style.willChange = 'opacity, transform';
 }
 
+function clearMotionStyles(el: HTMLElement): void {
+    // Les transform persistants cassent les taps sur liens sous iOS/Android.
+    el.style.transition = '';
+    el.style.transform = '';
+    el.style.willChange = 'auto';
+    el.style.opacity = '';
+}
+
 function show(el: HTMLElement, o: Required<RevealOptions>): void {
     el.style.transition =
         `opacity ${o.duration}ms ${EASE} ${o.delay}ms, transform ${o.duration}ms ${EASE} ${o.delay}ms`;
@@ -39,6 +47,21 @@ function show(el: HTMLElement, o: Required<RevealOptions>): void {
         el.style.opacity = '1';
         el.style.transform = 'translate3d(0, 0, 0) scale(1)';
     });
+
+    const cleanup = (event: TransitionEvent) => {
+        if (event.target !== el || (event.propertyName !== 'opacity' && event.propertyName !== 'transform')) {
+            return;
+        }
+
+        el.removeEventListener('transitionend', cleanup);
+        clearMotionStyles(el);
+    };
+
+    el.addEventListener('transitionend', cleanup);
+    window.setTimeout(() => {
+        el.removeEventListener('transitionend', cleanup);
+        clearMotionStyles(el);
+    }, o.duration + o.delay + 80);
 }
 
 export const vReveal: Directive<RevealEl, RevealOptions | undefined> = {
@@ -79,14 +102,6 @@ export const vReveal: Directive<RevealEl, RevealOptions | undefined> = {
 
         observer.observe(el);
         el.__revealObserver = observer;
-
-        el.addEventListener(
-            'transitionend',
-            () => {
-                el.style.willChange = 'auto';
-            },
-            { once: true },
-        );
     },
     unmounted(el) {
         el.__revealObserver?.disconnect();

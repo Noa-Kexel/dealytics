@@ -37,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureNotificationMails(): void
     {
         VerifyEmail::toMailUsing(fn (object $notifiable, string $url): MailMessage => (new MailMessage)
-            ->subject(config('app.name').' — Confirmez votre adresse e-mail')
+            ->subject(config('app.name').' : Confirmez votre adresse e-mail')
             ->view('emails.verify-email', [
                 'userName' => $notifiable->name,
                 'url' => $url,
@@ -51,7 +51,7 @@ class AppServiceProvider extends ServiceProvider
             ], absolute: false));
 
             return (new MailMessage)
-                ->subject(config('app.name').' — Réinitialisation de votre mot de passe')
+                ->subject(config('app.name').' : Réinitialisation de votre mot de passe')
                 ->view('emails.reset-password', [
                     'userName' => $notifiable->name,
                     'email' => $notifiable->getEmailForPasswordReset(),

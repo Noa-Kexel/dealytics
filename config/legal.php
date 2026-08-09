@@ -19,7 +19,7 @@ return [
     'editor' => [
         // Personne physique ou morale qui édite le site.
         'name' => env('LEGAL_EDITOR_NAME') ?: 'Noa Kexel',
-        'status' => env('LEGAL_EDITOR_STATUS') ?: 'Personne physique — projet étudiant (travail de fin d\'études)',
+        'status' => env('LEGAL_EDITOR_STATUS') ?: 'Personne physique (projet étudiant, travail de fin d\'études)',
         'address' => env('LEGAL_EDITOR_ADDRESS') ?: 'Boncelles',
         'country' => env('LEGAL_EDITOR_COUNTRY') ?: 'Belgique',
         'email' => env('LEGAL_EDITOR_EMAIL') ?: 'noa.kexel@gmail.com',
