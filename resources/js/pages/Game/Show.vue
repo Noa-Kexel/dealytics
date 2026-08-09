@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
+import { getRememberedHomeListUrl } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import type { NexardaGamePrices, NexardaOffer } from '@/lib/nexarda';
 import { fetchNexardaGame } from '@/lib/nexarda';
@@ -71,6 +72,7 @@ interface SteamData {
 
 const page = usePage<{ gameId: string }>();
 const gameId = page.props.gameId;
+const homeHref = getRememberedHomeListUrl();
 
 const { addAlert, getAlert, removeAlert } = useAlerts();
 
@@ -245,6 +247,9 @@ const currencySymbol = computed(() => nexarda.value?.currencySymbol || '€');
 const heroImage = computed(
     () => steam.value?.background_image || nexarda.value?.game.cover || '',
 );
+
+/** Steam headers are landscape; Nexarda covers are portrait — crop differently. */
+const hasLandscapeHero = computed(() => !!steam.value?.background_image);
 
 const coverImage = computed(() => nexarda.value?.game.cover || steam.value?.background_image || '');
 
@@ -582,7 +587,7 @@ onMounted(async () => {
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <Link
-            href="/"
+            :href="homeHref"
             class="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
             <ArrowLeft class="size-4" />
@@ -596,13 +601,25 @@ onMounted(async () => {
         <template v-else-if="nexarda">
             <div class="relative mb-8 overflow-hidden rounded-2xl border-gradient-strong">
                 <div class="relative">
+                    <!-- Blurred fill so portrait covers don't leave empty bands -->
+                    <GameImage
+                        v-if="!hasLandscapeHero && heroImage"
+                        :src="heroImage"
+                        alt=""
+                        aria-hidden="true"
+                        class="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-2xl"
+                    />
                     <GameImage
                         :src="heroImage"
                         :alt="title"
-                        class="absolute inset-0 size-full object-cover"
+                        class="absolute inset-0 size-full"
+                        :class="hasLandscapeHero ? 'object-cover' : 'object-contain object-center'"
                     />
                     <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/65 to-black/20 md:via-black/60 md:to-transparent" />
-                    <div class="relative flex min-h-60 flex-col justify-end p-5 sm:min-h-72 sm:p-6 md:aspect-[21/9] md:min-h-0 md:p-8">
+                    <div
+                        class="relative flex min-h-60 flex-col justify-end p-5 sm:min-h-72 sm:p-6 md:min-h-0 md:p-8"
+                        :class="hasLandscapeHero ? 'md:aspect-[21/9]' : 'md:aspect-[16/9]'"
+                    >
                         <h1 class="font-heading text-2xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] sm:text-3xl md:text-4xl">
                             {{ title }}
                         </h1>
@@ -1247,7 +1264,7 @@ onMounted(async () => {
             <Star class="mb-4 size-16 text-muted-foreground/20" />
             <h3 class="font-heading text-lg font-semibold">Jeu introuvable</h3>
             <p class="mt-1 text-sm text-muted-foreground">Ce jeu n'existe pas ou n'est plus disponible.</p>
-            <Link href="/" class="mt-4 text-sm text-dealytics-purple hover:underline">
+            <Link :href="homeHref" class="mt-4 text-sm text-dealytics-purple hover:underline">
                 Retour à l'accueil
             </Link>
         </div>

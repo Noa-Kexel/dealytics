@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     Search,
     SlidersHorizontal,
@@ -14,9 +14,9 @@ import {
     ArrowRight,
     PlugZap,
     RefreshCw,
+    RotateCcw,
 } from 'lucide-vue-next';
-import { onMounted, onBeforeUnmount } from 'vue';
-import { ref, computed } from 'vue';
+import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue';
 import GameCard from '@/components/GameCard.vue';
 import GameCardSkeleton from '@/components/GameCardSkeleton.vue';
 import GameImage from '@/components/GameImage.vue';
@@ -29,6 +29,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFavorites } from '@/composables/useFavorites';
+import { syncHomeListUrl, parseHomeListQuery } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import { FILTER_PLATFORMS } from '@/lib/platforms';
 import type { GameItem, GamesResponse } from '@/types';
@@ -57,7 +58,15 @@ const features = [
 ];
 
 const PLATFORMS = FILTER_PLATFORMS;
-const searchQuery = ref('');
+const platformSlugs = new Set(PLATFORMS.map((p) => p.slug));
+
+const page = usePage();
+const initialFilters = parseHomeListQuery(
+    new URL(page.url, 'http://localhost').search,
+    platformSlugs,
+);
+
+const searchQuery = ref(initialFilters.q);
 const games = ref<GameItem[]>([]);
 const loading = ref(false);
 const loadingMore = ref(false);
@@ -65,16 +74,46 @@ const hasSearched = ref(false);
 const loadError = ref(false);
 const currentPage = ref(1);
 const totalPages = ref(1);
-const selectedPlatform = ref<string>('all');
-const maxPrice = ref<string>('all');
-const sortBy = ref<string>('popular');
-const onSaleOnly = ref(false);
+const selectedPlatform = ref<string>(initialFilters.platform);
+const maxPrice = ref<string>(initialFilters.max);
+const sortBy = ref<string>(initialFilters.sort);
+const onSaleOnly = ref(initialFilters.sale);
 
 const debounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 const { loadFavorites } = useFavorites();
 
+function persistListUrl() {
+    syncHomeListUrl({
+        q: searchQuery.value,
+        platform: selectedPlatform.value,
+        max: maxPrice.value,
+        sort: sortBy.value,
+        sale: onSaleOnly.value,
+    });
+}
+
+watch([selectedPlatform, maxPrice, sortBy, onSaleOnly], persistListUrl);
+
+// Valeurs par défaut de la barre de filtres (la recherche a son propre champ).
+const hasActiveFilters = computed(
+    () =>
+        selectedPlatform.value !== 'all' ||
+        maxPrice.value !== 'all' ||
+        sortBy.value !== 'popular' ||
+        onSaleOnly.value,
+);
+
+// Le tri et les filtres sont appliqués côté client : pas besoin de recharger.
+function resetFilters() {
+    selectedPlatform.value = 'all';
+    maxPrice.value = 'all';
+    sortBy.value = 'popular';
+    onSaleOnly.value = false;
+}
+
 onMounted(() => {
+    persistListUrl();
     loadFavorites();
     loadGames();
     loadStats();
@@ -253,6 +292,7 @@ function onSearchEnter() {
     }
 
     closeSuggestions();
+    persistListUrl();
     loadGames();
 }
 
@@ -408,7 +448,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                     <GameImage
                         :src="game.image"
                         :alt="game.title"
-                        class="h-9 w-16 shrink-0 rounded-md object-cover"
+                        class="h-12 w-9 shrink-0 rounded-md object-cover object-top"
                     />
                     <span class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                         {{ game.title }}
@@ -498,6 +538,17 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                         :class="onSaleOnly ? 'text-dealytics-pink' : 'text-muted-foreground'"
                     />
                     En promo
+                </button>
+
+                <button
+                    v-if="hasActiveFilters"
+                    type="button"
+                    class="inline-flex h-8 w-[calc(50%_-_0.375rem)] cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border/50 bg-secondary px-3 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:border-dealytics-purple/40 hover:text-dealytics-purple focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:ml-auto sm:w-auto"
+                    title="Remettre les filtres à zéro"
+                    @click="resetFilters"
+                >
+                    <RotateCcw class="size-3" />
+                    Réinitialiser
                 </button>
             </div>
         </div>

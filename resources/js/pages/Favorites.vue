@@ -273,18 +273,18 @@ const sortedFavorites = computed(() => {
                 </Select>
             </div>
         </div>
-        <div v-if="sortedFavorites.length > 0" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-if="sortedFavorites.length > 0" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             <Link
                 v-for="fav in sortedFavorites"
                 :key="fav.game_id"
                 :href="`/game/${fav.game_id}`"
                 class="group border-gradient overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02]"
             >
-                <div class="relative aspect-[16/10] overflow-hidden bg-secondary">
+                <div class="relative aspect-[3/4] overflow-hidden bg-secondary">
                     <GameImage
                         :src="fav.thumb"
                         :alt="fav.title"
-                        class="size-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        class="size-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                     />
                     <div v-if="fav.savings && fav.savings >= 50" class="absolute top-2 left-2">
                         <span class="inline-flex items-center gap-1 rounded-md border border-dealytics-pink/30 bg-dealytics-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-dealytics-pink">

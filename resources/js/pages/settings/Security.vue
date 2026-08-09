@@ -6,6 +6,7 @@ import SecurityController from '@/actions/App/Http/Controllers/Settings/Security
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
+import PasswordRequirements from '@/components/PasswordRequirements.vue';
 import TwoFactorRecoveryCodes from '@/components/TwoFactorRecoveryCodes.vue';
 import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.vue';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ defineOptions({
 
 const { hasSetupData, clearTwoFactorAuthData } = useTwoFactorAuth();
 const showSetupModal = ref<boolean>(false);
+const password = ref('');
 
 onUnmounted(() => clearTwoFactorAuthData());
 </script>
@@ -68,6 +70,8 @@ onUnmounted(() => clearTwoFactorAuthData());
             ]"
             class="space-y-6"
             v-slot="{ errors, processing, recentlySuccessful }"
+            @success="password = ''"
+            @error="password = ''"
         >
             <div class="grid gap-2">
                 <Label for="current_password">Current password</Label>
@@ -85,11 +89,13 @@ onUnmounted(() => clearTwoFactorAuthData());
                 <Label for="password">New password</Label>
                 <PasswordInput
                     id="password"
+                    v-model="password"
                     name="password"
                     class="mt-1 block w-full"
                     autocomplete="new-password"
                     placeholder="New password"
                 />
+                <PasswordRequirements :password="password" />
                 <InputError :message="errors.password" />
             </div>
 

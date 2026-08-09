@@ -21,6 +21,13 @@ class GameApiTest extends TestCase
         $this->get(route('home'))->assertOk();
     }
 
+    public function test_home_page_accepts_list_filter_query_params(): void
+    {
+        $this->get('/?q=elden&platform=steam&max=20&sort=price&sale=1')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Home'));
+    }
+
     public function test_game_show_page_passes_game_id(): void
     {
         $this->get(route('game.show', ['id' => '96']))

@@ -56,12 +56,12 @@ async function toggleFavorite(e: Event) {
         class="group border-gradient cursor-pointer overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] hover:border-gradient-strong"
         @click="openGame"
     >
-        <!-- Image -->
-        <div class="relative aspect-16/10 overflow-hidden bg-secondary">
+        <!-- Image — Nexarda covers are portrait (~3:4); match that ratio to avoid cropping titles -->
+        <div class="relative aspect-[3/4] overflow-hidden bg-secondary">
             <GameImage
                 :src="thumb"
                 :alt="game.title"
-                class="size-full object-cover transition-transform duration-500 group-hover:scale-110"
+                class="size-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
             />
 
             <!-- Discount badge -->
