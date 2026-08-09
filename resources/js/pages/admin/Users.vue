@@ -236,8 +236,6 @@ function formatDate(value: string | null): string {
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <AdminTabs />
-
-        <!-- Header -->
         <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-purple/20">
@@ -261,8 +259,6 @@ function formatDate(value: string | null): string {
                 Ajouter un utilisateur
             </Button>
         </div>
-
-        <!-- Flash notice -->
         <Transition
             enter-active-class="transition duration-200 ease-out"
             enter-from-class="-translate-y-1 opacity-0"
@@ -318,8 +314,6 @@ function formatDate(value: string | null): string {
                 value-class="text-dealytics-cyan"
             />
         </div>
-
-        <!-- Filters -->
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="relative w-full sm:max-w-xs">
                 <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -345,20 +339,15 @@ function formatDate(value: string | null): string {
                 </button>
             </div>
         </div>
-
-        <!-- User list -->
         <div class="border-gradient overflow-hidden rounded-xl">
             <div
                 v-for="user in filteredUsers"
                 :key="user.id"
                 class="flex items-center gap-3 border-b border-border/40 p-3 last:border-b-0 hover:bg-secondary/30"
             >
-                <!-- Avatar -->
                 <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-dealytics-purple/20 text-xs font-semibold text-dealytics-purple">
                     {{ getInitials(user.name) }}
                 </div>
-
-                <!-- Identity -->
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                         <span class="truncate text-sm font-medium text-foreground">{{ user.name }}</span>
@@ -371,8 +360,6 @@ function formatDate(value: string | null): string {
                     </div>
                     <div class="truncate text-xs text-muted-foreground">{{ user.email }}</div>
                 </div>
-
-                <!-- Activity (hidden on small screens) -->
                 <div class="hidden shrink-0 items-center gap-4 text-[11px] text-muted-foreground lg:flex">
                     <span class="flex items-center gap-1" title="Favoris">
                         <Heart class="size-3" />{{ user.favorites_count }}
@@ -385,8 +372,6 @@ function formatDate(value: string | null): string {
                     </span>
                     <span class="w-24 text-right">{{ formatDate(user.created_at) }}</span>
                 </div>
-
-                <!-- Role badge -->
                 <span
                     class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium"
                     :class="ROLE_META[user.role].badge"
@@ -394,8 +379,6 @@ function formatDate(value: string | null): string {
                     <component :is="ROLE_META[user.role].icon" class="size-2.5" />
                     {{ roleLabel(user.role) }}
                 </span>
-
-                <!-- Actions -->
                 <div class="flex shrink-0 items-center gap-1">
                     <button
                         v-if="canManage(user)"
@@ -421,8 +404,6 @@ function formatDate(value: string | null): string {
             </div>
         </div>
     </div>
-
-    <!-- Create / Edit dialog -->
     <Dialog v-model:open="dialogOpen">
         <DialogContent class="border-border/50 bg-card sm:max-w-md">
             <DialogHeader>
@@ -511,8 +492,6 @@ function formatDate(value: string | null): string {
             </form>
         </DialogContent>
     </Dialog>
-
-    <!-- Delete confirmation -->
     <Dialog :open="deleteTarget !== null" @update:open="(v) => { if (!v) deleteTarget = null }">
         <DialogContent class="border-border/50 bg-card sm:max-w-sm">
             <DialogHeader>

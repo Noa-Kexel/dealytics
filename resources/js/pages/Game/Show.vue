@@ -251,7 +251,7 @@ const heroImage = computed(
 /** Cover Nexarda (légère) affichée tout de suite pendant le chargement du hero HD. */
 const heroPlaceholder = computed(() => nexarda.value?.game.cover || '');
 
-/** Steam headers / screenshots are landscape; Nexarda covers are portrait. */
+/** True si le hero vient de Steam (paysage) plutôt que d'une cover portrait. */
 const hasLandscapeHero = computed(() => !!steam.value?.background_image);
 
 /** Affiche le placeholder jusqu'à ce que le hero HD soit décodé (évite le flash). */

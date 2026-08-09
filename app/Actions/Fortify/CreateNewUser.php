@@ -25,9 +25,7 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
-        // The very first account to register becomes the super admin. In
-        // production this means the owner is the sole super admin as soon as
-        // they create their profile.
+        // Le premier compte inscrit devient super admin.
         $isFirstUser = ! User::query()->exists();
 
         $user = User::create([
