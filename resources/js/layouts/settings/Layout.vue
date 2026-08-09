@@ -11,11 +11,11 @@ import type { NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [
     {
-        title: 'Profile',
+        title: 'Profil',
         href: editProfile(),
     },
     {
-        title: 'Security',
+        title: 'Sécurité',
         href: editSecurity(),
     },
 ];
@@ -24,25 +24,29 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>
 
 <template>
-    <div class="px-4 py-6">
+    <div class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
         <Heading
-            title="Settings"
-            description="Manage your profile and account settings"
+            title="Paramètres"
+            description="Gérez votre profil et les paramètres de votre compte"
         />
 
-        <div class="flex flex-col lg:flex-row lg:space-x-12">
-            <aside class="w-full max-w-xl lg:w-48">
+        <div class="flex flex-col gap-8 sm:gap-10">
+            <aside class="flex justify-center">
                 <nav
-                    class="flex flex-col space-y-1 space-x-0"
-                    aria-label="Settings"
+                    class="inline-flex items-center gap-1 rounded-xl border border-border/60 bg-secondary/30 p-1"
+                    aria-label="Paramètres"
                 >
                     <Button
                         v-for="item in sidebarNavItems"
                         :key="toUrl(item.href)"
                         variant="ghost"
+                        size="sm"
                         :class="[
-                            'w-full justify-start',
-                            { 'bg-muted': isCurrentOrParentUrl(item.href) },
+                            'rounded-lg px-4',
+                            {
+                                'bg-dealytics-purple/15 text-dealytics-purple hover:bg-dealytics-purple/20 hover:text-dealytics-purple':
+                                    isCurrentOrParentUrl(item.href),
+                            },
                         ]"
                         as-child
                     >
@@ -54,13 +58,11 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                 </nav>
             </aside>
 
-            <Separator class="my-6 lg:hidden" />
+            <Separator class="opacity-60" />
 
-            <div class="flex-1 md:max-w-2xl">
-                <section class="max-w-xl space-y-12">
-                    <slot />
-                </section>
-            </div>
+            <section class="mx-auto w-full max-w-xl space-y-12">
+                <slot />
+            </section>
         </div>
     </div>
 </template>

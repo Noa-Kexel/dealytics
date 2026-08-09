@@ -2,10 +2,17 @@
 import { Gamepad2 } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
-const props = defineProps<{
-    src: string | null;
-    alt: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        src: string | null;
+        alt: string;
+        /** Hero / LCP images should load eagerly. */
+        eager?: boolean;
+    }>(),
+    {
+        eager: false,
+    },
+);
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,7 +32,9 @@ watch(
         v-if="src && !failed"
         :src="src"
         :alt="alt"
-        loading="lazy"
+        :loading="eager ? 'eager' : 'lazy'"
+        :fetchpriority="eager ? 'high' : undefined"
+        decoding="async"
         v-bind="$attrs"
         @error="failed = true"
     />

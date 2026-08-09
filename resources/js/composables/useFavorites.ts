@@ -46,8 +46,8 @@ function loadFromStorage(): FavoriteGame[] {
     }
 }
 
-function saveToStorage() {
-    const data = favorites.value.map((f) => ({
+function saveToStorage(items: FavoriteGame[] = favorites.value) {
+    const data = items.map((f) => ({
         gameID: f.game_id,
         title: f.title,
         thumb: f.thumb,
@@ -57,12 +57,66 @@ function saveToStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+function clearStorage() {
+    localStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Pousse les favoris invité (localStorage) vers le compte connecté,
+ * puis purge le stockage local des entrées migrées avec succès.
+ */
+async function migrateLocalFavorites(): Promise<boolean> {
+    const local = loadFromStorage();
+
+    if (local.length === 0) {
+        return false;
+    }
+
+    const existingIds = new Set(favorites.value.map((f) => f.game_id));
+    const remaining: FavoriteGame[] = [];
+    let migrated = false;
+
+    for (const fav of local) {
+        if (existingIds.has(fav.game_id)) {
+            migrated = true;
+            continue;
+        }
+
+        try {
+            await api('/api/favorites', {
+                method: 'POST',
+                body: {
+                    game_id: fav.game_id,
+                    title: fav.title,
+                    thumb: fav.thumb || null,
+                },
+            });
+            existingIds.add(fav.game_id);
+            migrated = true;
+        } catch {
+            remaining.push(fav);
+        }
+    }
+
+    if (remaining.length === 0) {
+        clearStorage();
+    } else {
+        saveToStorage(remaining);
+    }
+
+    return migrated;
+}
+
 export function useFavorites() {
     async function loadFavorites(): Promise<void> {
         if (isAuthenticated()) {
             try {
                 const data = await api<FavoriteGame[]>('/api/favorites');
                 favorites.value = data;
+
+                if (await migrateLocalFavorites()) {
+                    favorites.value = await api<FavoriteGame[]>('/api/favorites');
+                }
             } catch {
                 favorites.value = loadFromStorage();
             }

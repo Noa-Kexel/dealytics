@@ -6,9 +6,6 @@ import {
     Heart,
     Home,
     LayoutGrid,
-    Twitter,
-    Instagram,
-    Link2,
     LogIn,
     Shield,
 } from 'lucide-vue-next';
@@ -320,31 +317,8 @@ onMounted(async () => {
                                         </li>
                                     </ul>
                                     <div
-                                        class="mt-3 flex items-center justify-between border-t border-border/50 pt-3"
+                                        class="mt-3 flex items-center justify-end border-t border-border/50 pt-3"
                                     >
-                                        <div class="flex items-center gap-2">
-                                            <a
-                                                href="#"
-                                                aria-label="X"
-                                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
-                                            >
-                                                <Twitter class="size-4" />
-                                            </a>
-                                            <a
-                                                href="#"
-                                                aria-label="Instagram"
-                                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
-                                            >
-                                                <Instagram class="size-4" />
-                                            </a>
-                                            <a
-                                                href="#"
-                                                aria-label="Lien"
-                                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
-                                            >
-                                                <Link2 class="size-4" />
-                                            </a>
-                                        </div>
                                         <span
                                             class="text-[11px] text-muted-foreground/60"
                                             >&copy;
@@ -384,29 +358,6 @@ onMounted(async () => {
                             La meilleure plateforme pour suivre les prix des
                             jeux et trouver les offres exceptionnelles.
                         </p>
-                        <div class="mt-4 flex items-center gap-3">
-                            <a
-                                href="#"
-                                aria-label="X"
-                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
-                            >
-                                <Twitter class="size-4" />
-                            </a>
-                            <a
-                                href="#"
-                                aria-label="Instagram"
-                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
-                            >
-                                <Instagram class="size-4" />
-                            </a>
-                            <a
-                                href="#"
-                                aria-label="Lien"
-                                class="flex size-8 items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground transition-colors hover:bg-secondary hover:text-dealytics-purple"
-                            >
-                                <Link2 class="size-4" />
-                            </a>
-                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-semibold text-dealytics-purple">

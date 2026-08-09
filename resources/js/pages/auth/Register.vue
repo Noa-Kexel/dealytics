@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
 import { UserPlus } from 'lucide-vue-next';
+import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
+import PasswordRequirements from '@/components/PasswordRequirements.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +19,8 @@ defineOptions({
         description: 'Rejoignez Dealytics et ne manquez plus aucune offre',
     },
 });
+
+const password = ref('');
 </script>
 
 <template>
@@ -27,6 +31,7 @@ defineOptions({
         :reset-on-success="['password', 'password_confirmation']"
         v-slot="{ errors, processing }"
         class="flex flex-col gap-6"
+        @success="password = ''"
     >
         <div class="grid gap-5">
             <div class="grid gap-2">
@@ -64,12 +69,14 @@ defineOptions({
                 <Label for="password" class="text-sm text-foreground/80">Mot de passe</Label>
                 <PasswordInput
                     id="password"
+                    v-model="password"
                     required
                     :tabindex="3"
                     autocomplete="new-password"
                     name="password"
                     placeholder="Créez un mot de passe"
                 />
+                <PasswordRequirements :password="password" />
                 <InputError :message="errors.password" />
             </div>
 

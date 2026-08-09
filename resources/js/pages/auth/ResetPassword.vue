@@ -4,6 +4,7 @@ import { KeyRound } from 'lucide-vue-next';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
+import PasswordRequirements from '@/components/PasswordRequirements.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,7 @@ const props = defineProps<{
 }>();
 
 const inputEmail = ref(props.email);
+const password = ref('');
 </script>
 
 <template>
@@ -33,6 +35,7 @@ const inputEmail = ref(props.email);
         :transform="(data) => ({ ...data, token, email })"
         :reset-on-success="['password', 'password_confirmation']"
         v-slot="{ errors, processing }"
+        @success="password = ''"
     >
         <div class="grid gap-5">
             <div class="grid gap-2">
@@ -53,11 +56,13 @@ const inputEmail = ref(props.email);
                 <Label for="password" class="text-sm text-foreground/80">Nouveau mot de passe</Label>
                 <PasswordInput
                     id="password"
+                    v-model="password"
                     name="password"
                     autocomplete="new-password"
                     autofocus
                     placeholder="Nouveau mot de passe"
                 />
+                <PasswordRequirements :password="password" />
                 <InputError :message="errors.password" />
             </div>
 

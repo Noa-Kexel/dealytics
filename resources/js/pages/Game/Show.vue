@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
+import { getRememberedHomeListUrl } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import type { NexardaGamePrices, NexardaOffer } from '@/lib/nexarda';
 import { fetchNexardaGame } from '@/lib/nexarda';
@@ -71,6 +72,7 @@ interface SteamData {
 
 const page = usePage<{ gameId: string }>();
 const gameId = page.props.gameId;
+const homeHref = getRememberedHomeListUrl();
 
 const { addAlert, getAlert, removeAlert } = useAlerts();
 
@@ -244,6 +246,60 @@ const currencySymbol = computed(() => nexarda.value?.currencySymbol || '€');
 
 const heroImage = computed(
     () => steam.value?.background_image || nexarda.value?.game.cover || '',
+);
+
+/** Cover Nexarda (légère) affichée tout de suite pendant le chargement du hero HD. */
+const heroPlaceholder = computed(() => nexarda.value?.game.cover || '');
+
+/** Steam headers / screenshots are landscape; Nexarda covers are portrait. */
+const hasLandscapeHero = computed(() => !!steam.value?.background_image);
+
+/** Affiche le placeholder jusqu'à ce que le hero HD soit décodé (évite le flash). */
+const displayedHero = ref('');
+const heroHdReady = ref(false);
+
+watch(
+    heroImage,
+    (target) => {
+        if (!target) {
+            displayedHero.value = '';
+            heroHdReady.value = false;
+
+            return;
+        }
+
+        const isHd = !!steam.value?.background_image && target === steam.value.background_image;
+        const placeholder = heroPlaceholder.value;
+
+        if (!isHd) {
+            displayedHero.value = target;
+            heroHdReady.value = true;
+
+            return;
+        }
+
+        // Garde la cover visible pendant le preload HD
+        if (placeholder && displayedHero.value !== target) {
+            displayedHero.value = placeholder;
+            heroHdReady.value = false;
+        }
+
+        const preload = new window.Image();
+        preload.onload = () => {
+            if (heroImage.value === target) {
+                displayedHero.value = target;
+                heroHdReady.value = true;
+            }
+        };
+        preload.onerror = () => {
+            if (heroImage.value === target) {
+                displayedHero.value = placeholder || target;
+                heroHdReady.value = true;
+            }
+        };
+        preload.src = target;
+    },
+    { immediate: true },
 );
 
 const coverImage = computed(() => nexarda.value?.game.cover || steam.value?.background_image || '');
@@ -580,9 +636,9 @@ onMounted(async () => {
 <template>
     <Head :title="title || 'Chargement...'" />
 
-    <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
+    <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 pb-28 lg:px-6 lg:pb-6">
         <Link
-            href="/"
+            :href="homeHref"
             class="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
             <ArrowLeft class="size-4" />
@@ -595,14 +651,31 @@ onMounted(async () => {
 
         <template v-else-if="nexarda">
             <div class="relative mb-8 overflow-hidden rounded-2xl border-gradient-strong">
-                <div class="relative">
+                <div class="relative bg-secondary/40">
+                    <!-- Cover légère en fond pendant le chargement HD -->
                     <GameImage
-                        :src="heroImage"
-                        :alt="title"
-                        class="absolute inset-0 size-full object-cover"
+                        v-if="heroPlaceholder && (!heroHdReady || !hasLandscapeHero)"
+                        :src="heroPlaceholder"
+                        alt=""
+                        aria-hidden="true"
+                        eager
+                        class="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/65 to-black/20 md:via-black/60 md:to-transparent" />
-                    <div class="relative flex min-h-60 flex-col justify-end p-5 sm:min-h-72 sm:p-6 md:aspect-[21/9] md:min-h-0 md:p-8">
+                    <GameImage
+                        :src="displayedHero || heroPlaceholder"
+                        :alt="title"
+                        eager
+                        class="absolute inset-0 size-full transition-opacity duration-500"
+                        :class="[
+                            hasLandscapeHero && heroHdReady ? 'object-cover' : 'object-contain object-center',
+                            heroHdReady || !hasLandscapeHero ? 'opacity-100' : 'opacity-70',
+                        ]"
+                    />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/10 md:via-black/50 md:to-transparent" />
+                    <div
+                        class="relative flex min-h-60 flex-col justify-end p-5 sm:min-h-72 sm:p-6 md:min-h-0 md:p-8"
+                        :class="hasLandscapeHero ? 'md:aspect-[21/9]' : 'md:aspect-[16/9]'"
+                    >
                         <h1 class="font-heading text-2xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] sm:text-3xl md:text-4xl">
                             {{ title }}
                         </h1>
@@ -1049,7 +1122,7 @@ onMounted(async () => {
                         <p class="text-sm text-muted-foreground">Aucune offre disponible pour ce jeu actuellement.</p>
                     </div>
                 </div>
-                <div class="min-w-0 space-y-6">
+                <div class="min-w-0 space-y-6 lg:sticky lg:top-24 lg:self-start">
                     <div v-reveal class="border-gradient rounded-xl p-6">
                         <h3 class="mb-4 font-heading text-base font-semibold">Actions</h3>
 
@@ -1242,12 +1315,54 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
+
+            <div
+                class="fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background/90 px-4 pt-3 backdrop-blur-xl lg:hidden"
+                style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))"
+            >
+                <div class="mx-auto flex max-w-7xl items-center gap-3">
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-[10px] text-muted-foreground">
+                            {{ bestOffer?.store ? `Meilleur sur ${bestOffer.store}` : 'Meilleur prix' }}
+                        </p>
+                        <p class="truncate text-lg font-bold text-dealytics-cyan tabular-nums">
+                            {{ currentPrice === 0 ? '—' : `${currentPrice.toFixed(2)}${currencySymbol}` }}
+                        </p>
+                    </div>
+                    <Button
+                        size="icon"
+                        :variant="isFavorite ? 'default' : 'outline'"
+                        class="size-11 shrink-0 transition-all duration-200 active:scale-95"
+                        :aria-label="isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+                        @click="toggleFavorite"
+                    >
+                        <Heart
+                            class="size-4 transition-all duration-300"
+                            :class="[
+                                isFavorite ? 'fill-white' : '',
+                                heartAnimating ? 'animate-heart-pop' : '',
+                            ]"
+                        />
+                    </Button>
+                    <a
+                        v-if="bestOffer?.url"
+                        :href="bestOffer.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex h-11 min-w-0 flex-[1.2] touch-manipulation items-center justify-center gap-2 rounded-md bg-dealytics-cyan px-4 text-sm font-semibold text-dealytics-dark transition-all active:scale-[0.98] hover:bg-dealytics-cyan/90"
+                        @click="openStoreUrl(bestOffer.url, $event)"
+                    >
+                        <ExternalLink class="size-4 shrink-0" />
+                        <span class="truncate">Acheter</span>
+                    </a>
+                </div>
+            </div>
         </template>
         <div v-else class="flex flex-col items-center justify-center py-20 text-center">
             <Star class="mb-4 size-16 text-muted-foreground/20" />
             <h3 class="font-heading text-lg font-semibold">Jeu introuvable</h3>
             <p class="mt-1 text-sm text-muted-foreground">Ce jeu n'existe pas ou n'est plus disponible.</p>
-            <Link href="/" class="mt-4 text-sm text-dealytics-purple hover:underline">
+            <Link :href="homeHref" class="mt-4 text-sm text-dealytics-purple hover:underline">
                 Retour à l'accueil
             </Link>
         </div>

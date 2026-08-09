@@ -19,6 +19,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import AdminTabs from '@/components/AdminTabs.vue';
 import InputError from '@/components/InputError.vue';
+import PasswordRequirements from '@/components/PasswordRequirements.vue';
 import StatCard from '@/components/StatCard.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -476,6 +477,10 @@ function formatDate(value: string | null): string {
                         type="password"
                         :required="!editing"
                         autocomplete="new-password"
+                    />
+                    <PasswordRequirements
+                        v-if="!editing || form.password.length > 0"
+                        :password="form.password"
                     />
                     <InputError :message="form.errors.password" />
                 </div>

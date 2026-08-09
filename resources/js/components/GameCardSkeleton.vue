@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 <template>
     <div class="border-gradient overflow-hidden rounded-xl">
-        <Skeleton class="aspect-[16/10] w-full rounded-none" />
+        <Skeleton class="aspect-[3/4] w-full rounded-none" />
         <div class="p-3 space-y-2">
             <Skeleton class="h-4 w-3/4" />
             <Skeleton class="h-3 w-1/3" />

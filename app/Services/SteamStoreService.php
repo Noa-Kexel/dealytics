@@ -59,7 +59,8 @@ class SteamStoreService
 
     public function getGameByAppId(int $appId): ?array
     {
-        $cacheKey = "steam_game_v2_{$appId}";
+        // v4: skip dark/empty page backgrounds; prefer screenshot / library_hero
+        $cacheKey = "steam_game_v4_{$appId}";
 
         return Cache::remember($cacheKey, now()->addHours(24), function () use ($appId) {
             try {
@@ -105,6 +106,7 @@ class SteamStoreService
                 $metacritic = $data['metacritic']['score'] ?? null;
                 $rating = $reviews['rating'] ?? 0;
                 $ratingsCount = $reviews['total_reviews'] ?? ($data['recommendations']['total'] ?? 0);
+                $screenshots = collect($data['screenshots'] ?? [])->pluck('path_full')->filter()->values()->all();
 
                 return [
                     'source' => 'steam',
@@ -112,7 +114,7 @@ class SteamStoreService
                     'name' => $data['name'] ?? 'Unknown',
                     'description' => $description,
                     'released' => $data['release_date']['date'] ?? null,
-                    'background_image' => $data['header_image'] ?? null,
+                    'background_image' => $this->resolveHeroImage($appId, $data, $screenshots),
                     'rating' => $rating,
                     'ratings_count' => $ratingsCount,
                     'metacritic' => $metacritic,
@@ -121,13 +123,49 @@ class SteamStoreService
                     'developers' => $data['developers'] ?? [],
                     'publishers' => $data['publishers'] ?? [],
                     'tags' => collect($data['categories'] ?? [])->pluck('description')->take(8)->values()->all(),
-                    'screenshots' => collect($data['screenshots'] ?? [])->pluck('path_full')->filter()->values()->all(),
+                    'screenshots' => $screenshots,
                     'website' => $data['website'] ?? null,
                 ];
             } catch (\Throwable) {
                 return null;
             }
         });
+    }
+
+    /**
+     * Steam header_image is only ~460×215 — soft when stretched as a page hero.
+     * background_raw is often a near-empty dark blur for indie titles — prefer real art.
+     *
+     * @param  list<string>  $screenshots
+     */
+    private function resolveHeroImage(int $appId, array $data, array $screenshots): ?string
+    {
+        $libraryHero = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/library_hero.jpg";
+
+        try {
+            if (Http::timeout(3)->head($libraryHero)->successful()) {
+                return $libraryHero;
+            }
+        } catch (\Throwable) {
+        }
+
+        if (! empty($screenshots[0])) {
+            return $screenshots[0];
+        }
+
+        if (! empty($data['header_image'])) {
+            return $data['header_image'];
+        }
+
+        $backgroundRaw = $data['background_raw'] ?? null;
+
+        if (is_string($backgroundRaw)
+            && $backgroundRaw !== ''
+            && ! str_contains($backgroundRaw, 'storepagebackground')) {
+            return $backgroundRaw;
+        }
+
+        return null;
     }
 
     /**
