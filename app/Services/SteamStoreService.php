@@ -59,7 +59,7 @@ class SteamStoreService
 
     public function getGameByAppId(int $appId): ?array
     {
-        // v4: skip dark/empty page backgrounds; prefer screenshot / library_hero
+        // Préfère library_hero / screenshot aux fonds sombres ou vides.
         $cacheKey = "steam_game_v4_{$appId}";
 
         return Cache::remember($cacheKey, now()->addHours(24), function () use ($appId) {

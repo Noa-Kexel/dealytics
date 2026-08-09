@@ -28,7 +28,6 @@ const { loadNotifications } = useNotifications();
 const sending = ref(false);
 const sent = ref(false);
 
-// ── Aperçu des e-mails ──────────────────────────────────────
 const activeTemplate = ref(props.templates[0]?.key ?? '');
 const previewUrl = computed(() => `/admin/notifications/preview/${activeTemplate.value}`);
 
@@ -87,8 +86,6 @@ function sendTest() {
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <AdminTabs />
-
-        <!-- Header -->
         <div class="mb-6 flex items-center gap-3">
             <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-cyan/20">
                 <BellRing class="size-5 text-dealytics-cyan" />
@@ -104,7 +101,6 @@ function sendTest() {
         </div>
 
         <div class="grid gap-6 lg:grid-cols-2">
-            <!-- Action -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-3 flex items-center gap-2">
                     <Bell class="size-4 text-dealytics-cyan" />
@@ -137,16 +133,12 @@ function sendTest() {
                     </span>
                 </div>
             </div>
-
-            <!-- Preview -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-3 flex items-center gap-2">
                     <Info class="size-4 text-dealytics-purple" />
                     <h2 class="font-heading text-lg font-semibold">Aperçu</h2>
                 </div>
                 <p class="mb-4 text-sm text-muted-foreground">Voici le toast qui s'affichera :</p>
-
-                <!-- Static replica of AlertToast -->
                 <div class="w-full max-w-80 overflow-hidden rounded-xl border border-dealytics-cyan/30 bg-background/95 shadow-xl">
                     <div class="flex items-start gap-3 p-4">
                         <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-dealytics-cyan/15">
@@ -168,8 +160,6 @@ function sendTest() {
                 </div>
             </div>
         </div>
-
-        <!-- Aperçu des e-mails -->
         <section class="border-gradient mt-6 rounded-xl p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
@@ -199,8 +189,6 @@ function sendTest() {
                     </Button>
                 </div>
             </div>
-
-            <!-- Sélecteur de gabarit -->
             <div class="mt-4 flex flex-wrap gap-2">
                 <button
                     v-for="template in templates"

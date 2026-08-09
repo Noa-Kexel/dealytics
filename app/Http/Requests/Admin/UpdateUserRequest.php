@@ -28,7 +28,7 @@ class UpdateUserRequest extends FormRequest
 
         return [
             ...$this->profileRules($target->id),
-            // Password is optional on update — only changed when provided.
+            // Mot de passe optionnel à la mise à jour.
             'password' => ['nullable', 'string', Password::default(), 'confirmed'],
             'role' => ['required', Rule::enum(UserRole::class)],
         ];

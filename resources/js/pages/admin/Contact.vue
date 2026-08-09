@@ -112,8 +112,6 @@ function formatDate(value: string): string {
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
         <AdminTabs />
-
-        <!-- Header -->
         <div class="mb-6 flex items-center gap-3">
             <div
                 class="flex size-10 items-center justify-center rounded-xl bg-dealytics-pink/20"
@@ -131,8 +129,6 @@ function formatDate(value: string): string {
                 </p>
             </div>
         </div>
-
-        <!-- Flash notice -->
         <Transition
             enter-active-class="transition duration-200 ease-out"
             enter-from-class="-translate-y-1 opacity-0"
@@ -162,8 +158,6 @@ function formatDate(value: string): string {
                 </button>
             </div>
         </Transition>
-
-        <!-- Stats + filtre -->
         <div
             v-reveal="{ y: 16 }"
             class="mb-6 flex flex-wrap items-center justify-between gap-4"
@@ -222,8 +216,6 @@ function formatDate(value: string): string {
                 </button>
             </div>
         </div>
-
-        <!-- Liste -->
         <div v-if="visibleMessages.length" class="space-y-2">
             <article
                 v-for="message in visibleMessages"
@@ -340,8 +332,6 @@ function formatDate(value: string): string {
                 </div>
             </article>
         </div>
-
-        <!-- État vide -->
         <div
             v-else
             class="border-gradient flex flex-col items-center rounded-xl px-6 py-16 text-center"

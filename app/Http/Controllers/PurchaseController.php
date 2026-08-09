@@ -55,9 +55,7 @@ class PurchaseController extends Controller
         return response()->json(['message' => 'Achat supprimé']);
     }
 
-    /**
-     * Get spending history (last 6 months).
-     */
+    /** Historique des dépenses sur les 6 derniers mois. */
     public function history(Request $request): JsonResponse
     {
         $history = [];

@@ -56,23 +56,18 @@ async function toggleFavorite(e: Event) {
         class="group flex h-full flex-col border-gradient cursor-pointer overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] hover:border-gradient-strong"
         @click="openGame"
     >
-        <!-- Image — Nexarda covers are portrait (~3:4); match that ratio to avoid cropping titles -->
         <div class="relative aspect-[3/4] shrink-0 overflow-hidden bg-secondary">
             <GameImage
                 :src="thumb"
                 :alt="game.title"
                 class="size-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
             />
-
-            <!-- Discount badge -->
             <div
                 v-if="discount > 0"
                 class="absolute top-2 right-2 rounded-md bg-dealytics-purple px-2 py-0.5 text-[11px] font-bold text-white"
             >
                 -{{ discount }}%
             </div>
-
-            <!-- Hot badge for big discounts -->
             <div
                 v-if="discount >= 50"
                 class="absolute top-2 left-2 inline-flex items-center gap-1 rounded-md border border-dealytics-pink/30 bg-dealytics-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-dealytics-pink"
@@ -82,8 +77,6 @@ async function toggleFavorite(e: Event) {
             </div>
 
         </div>
-
-        <!-- Content -->
         <div class="flex flex-1 flex-col p-3">
             <h3 class="truncate text-sm font-semibold text-foreground">
                 {{ game.title }}
@@ -115,7 +108,6 @@ async function toggleFavorite(e: Event) {
                 </div>
 
                 <div class="flex shrink-0 items-center">
-                    <!-- Favorite button -->
                     <button
                         class="flex size-8 items-center justify-center rounded-full border border-border/50 bg-secondary/50 transition-all duration-200 hover:bg-secondary active:scale-90"
                         @click="toggleFavorite"

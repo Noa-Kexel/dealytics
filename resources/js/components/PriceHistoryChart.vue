@@ -58,8 +58,7 @@ const bounds = computed(() => {
     const min = Math.min(...ys);
     const max = Math.max(...ys);
 
-    // Frame the visible series with a little breathing room so the line never
-    // glues itself to the top/bottom edge.
+    // Marge verticale pour que la courbe ne colle pas aux bords.
     let lo: number;
     let hi: number;
 
@@ -84,8 +83,7 @@ const bounds = computed(() => {
     };
 });
 
-// Calendar-aware ticks (aligned to days for short ranges, to month starts for
-// long ones) so labels read cleanly instead of landing on arbitrary dates.
+// Ticks X alignés jour/mois selon la plage affichée.
 const xTicks = computed<number[]>(() => {
     const { minX, maxX, spanDays } = bounds.value;
 
@@ -134,7 +132,7 @@ function formatTick(ms: number): string {
     return d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
 }
 
-// Round a raw interval up to a human-friendly step (1, 2, 5, 10, 20, 50…).
+/** Arrondit un intervalle brut vers un pas lisible (1, 2, 5, 10…). */
 function niceStep(raw: number): number {
     const exp = Math.floor(Math.log10(raw));
     const base = 10 ** exp;
@@ -143,8 +141,7 @@ function niceStep(raw: number): number {
     return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * base;
 }
 
-// Round Y ticks (kept strictly inside the tight min/max frame so the line keeps
-// its full amplitude while the labels stay on clean values).
+// Ticks Y dans le cadre min/max (valeurs propres, amplitude conservée).
 const yTicks = computed<number[]>(() => {
     const { lo, hi } = bounds.value;
 
@@ -222,7 +219,7 @@ const chartData = computed(() => ({
     ],
 }));
 
-// Dashed reference line at the lowest price in the visible window, with a label.
+// Ligne en pointillés au plus bas de la fenêtre visible.
 const lowestLine: Plugin<'line'> = {
     id: 'lowestLine',
     afterDatasetsDraw(chart) {
@@ -259,7 +256,7 @@ const lowestLine: Plugin<'line'> = {
     },
 };
 
-// Vertical crosshair following the hovered point.
+// Croix verticale au survol.
 const crosshair: Plugin<'line'> = {
     id: 'crosshair',
     afterDatasetsDraw(chart) {
@@ -285,7 +282,7 @@ const crosshair: Plugin<'line'> = {
     },
 };
 
-// Glowing dot at the latest price (turns pink when the price is at its lowest).
+// Point sur le dernier prix (rose si au plus bas).
 const endpointGlow: Plugin<'line'> = {
     id: 'endpointGlow',
     afterDatasetsDraw(chart) {
