@@ -186,13 +186,14 @@ class GameApiTest extends TestCase
             ->assertJsonPath('metacritic', 93);
     }
 
-    public function test_steam_hero_prefers_background_raw_over_tiny_header(): void
+    public function test_steam_hero_prefers_screenshot_over_empty_background(): void
     {
         Cache::flush();
 
         $appId = 4231820;
         $header = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/header.jpg";
-        $bgRaw = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/page_bg_raw.jpg";
+        $bgRaw = "https://store.akamai.steamstatic.com/images/storepagebackground/app/{$appId}";
+        $screenshot = 'https://example.com/ss.1920x1080.jpg';
         $libraryHero = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/library_hero.jpg";
 
         Http::fake([
@@ -207,7 +208,7 @@ class GameApiTest extends TestCase
                         'header_image' => $header,
                         'background_raw' => $bgRaw,
                         'screenshots' => [
-                            ['path_full' => "https://example.com/ss.1920x1080.jpg"],
+                            ['path_full' => $screenshot],
                         ],
                         'platforms' => ['windows' => true, 'mac' => false, 'linux' => false],
                         'genres' => [],
@@ -228,7 +229,7 @@ class GameApiTest extends TestCase
         $game = app(SteamStoreService::class)->getGameByTitle("Castlevania: Belmont's Curse");
 
         $this->assertNotNull($game);
-        $this->assertSame($bgRaw, $game['background_image']);
+        $this->assertSame($screenshot, $game['background_image']);
     }
 
     public function test_nexarda_search_maps_normal_price_via_price_helper(): void

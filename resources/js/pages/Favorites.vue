@@ -273,7 +273,7 @@ const sortedFavorites = computed(() => {
                 </Select>
             </div>
         </div>
-        <div v-if="sortedFavorites.length > 0" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div v-if="sortedFavorites.length > 0" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <Link
                 v-for="fav in sortedFavorites"
                 :key="fav.game_id"

@@ -59,8 +59,8 @@ class SteamStoreService
 
     public function getGameByAppId(int $appId): ?array
     {
-        // v3: hero prefers library_hero / background_raw / screenshot over tiny header.jpg
-        $cacheKey = "steam_game_v3_{$appId}";
+        // v4: skip dark/empty page backgrounds; prefer screenshot / library_hero
+        $cacheKey = "steam_game_v4_{$appId}";
 
         return Cache::remember($cacheKey, now()->addHours(24), function () use ($appId) {
             try {
@@ -133,8 +133,8 @@ class SteamStoreService
     }
 
     /**
-     * Steam header_image is only ~460×215 — blurry when stretched as a page hero.
-     * Prefer library_hero, then page background, then a full screenshot.
+     * Steam header_image is only ~460×215 — soft when stretched as a page hero.
+     * background_raw is often a near-empty dark blur for indie titles — prefer real art.
      *
      * @param  list<string>  $screenshots
      */
@@ -149,15 +149,23 @@ class SteamStoreService
         } catch (\Throwable) {
         }
 
-        if (! empty($data['background_raw'])) {
-            return $data['background_raw'];
-        }
-
         if (! empty($screenshots[0])) {
             return $screenshots[0];
         }
 
-        return $data['header_image'] ?? null;
+        if (! empty($data['header_image'])) {
+            return $data['header_image'];
+        }
+
+        $backgroundRaw = $data['background_raw'] ?? null;
+
+        if (is_string($backgroundRaw)
+            && $backgroundRaw !== ''
+            && ! str_contains($backgroundRaw, 'storepagebackground')) {
+            return $backgroundRaw;
+        }
+
+        return null;
     }
 
     /**

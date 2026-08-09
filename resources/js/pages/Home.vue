@@ -554,14 +554,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         </div>
         <div
             v-if="loading"
-            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
+            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5"
         >
-            <GameCardSkeleton v-for="i in 8" :key="i" />
+            <GameCardSkeleton v-for="i in 10" :key="i" />
         </div>
 
         <div
             v-else-if="displayedGames.length > 0"
-            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
+            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5"
         >
             <GameCard
                 v-for="(game, index) in displayedGames"
@@ -610,9 +610,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         </div>
         <div
             v-if="loadingMore"
-            class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
+            class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-5"
         >
-            <GameCardSkeleton v-for="i in 4" :key="'more-' + i" />
+            <GameCardSkeleton v-for="i in 5" :key="'more-' + i" />
         </div>
 
         <div
