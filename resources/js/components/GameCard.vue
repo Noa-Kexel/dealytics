@@ -99,8 +99,8 @@ async function toggleFavorite(e: Event) {
                 </span>
             </div>
 
-            <div class="mt-2 flex items-end justify-between">
-                <div class="flex items-baseline gap-2">
+            <div class="mt-2 flex items-end justify-between gap-3">
+                <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span class="text-lg font-bold text-dealytics-cyan">
                         <template v-if="game.price === null">N/A</template>
                         <template v-else-if="game.price === 0">Gratuit</template>
@@ -114,7 +114,7 @@ async function toggleFavorite(e: Event) {
                     </span>
                 </div>
 
-                <div class="flex items-center">
+                <div class="flex shrink-0 items-center">
                     <!-- Favorite button -->
                     <button
                         class="flex size-8 items-center justify-center rounded-full border border-border/50 bg-secondary/50 transition-all duration-200 hover:bg-secondary active:scale-90"
