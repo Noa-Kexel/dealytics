@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     ChevronRight,
+    CodeXml,
     Heart,
     Home,
     LayoutGrid,
@@ -90,9 +91,8 @@ const legalLinks = [
     { title: "Conditions d'utilisation", href: '/conditions-generales' },
 ];
 
-// Mobile navigation dropdown (slides down from under the header)
 const menuOpen = ref(false);
-// Teleport is client-only to avoid SSR hydration mismatches (Inertia SSR).
+// Teleport côté client uniquement (évite les mismatches SSR Inertia).
 const mounted = ref(false);
 
 function closeMenu() {
@@ -105,7 +105,7 @@ function onKeydown(event: KeyboardEvent) {
     }
 }
 
-// Lock body scroll and wire Escape while the menu is open; close on navigation.
+// Bloque le scroll et écoute Escape tant que le menu mobile est ouvert.
 watch(menuOpen, (open) => {
     document.body.style.overflow = open ? 'hidden' : '';
 
@@ -141,19 +141,15 @@ onMounted(async () => {
 
 <template>
     <div class="flex min-h-screen w-full flex-col bg-background">
-        <!-- Header -->
         <header
             class="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl"
         >
             <div
                 class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6"
             >
-                <!-- Logo -->
                 <Link href="/" class="flex items-center">
                     <AppLogo />
                 </Link>
-
-                <!-- Desktop Navigation -->
                 <nav class="hidden items-center gap-1 md:flex">
                     <Link
                         v-for="item in navItems"
@@ -174,12 +170,8 @@ onMounted(async () => {
                         />
                     </Link>
                 </nav>
-
-                <!-- Right side -->
                 <div class="flex items-center gap-3">
                     <NotificationBell v-if="auth?.user" />
-
-                    <!-- User menu -->
                     <DropdownMenu v-if="auth?.user">
                         <DropdownMenuTrigger :as-child="true">
                             <Button
@@ -207,8 +199,6 @@ onMounted(async () => {
                             <UserMenuContent :user="auth.user" />
                         </DropdownMenuContent>
                     </DropdownMenu>
-
-                    <!-- Login link if not authenticated -->
                     <Link
                         v-else
                         href="/login"
@@ -217,8 +207,6 @@ onMounted(async () => {
                         <LogIn class="size-4" />
                         Connexion
                     </Link>
-
-                    <!-- Mobile menu trigger (animated hamburger) -->
                     <button
                         type="button"
                         aria-label="Menu"
@@ -258,9 +246,6 @@ onMounted(async () => {
                             />
                         </span>
                     </button>
-
-                    <!-- Mobile menu dropdown (slides down from under the header) -->
-                    <!-- Teleport gated on `mounted` so it never runs during SSR (avoids hydration mismatch). -->
                     <Teleport v-if="mounted" to="body">
                         <Transition name="menu-fade">
                             <button
@@ -373,25 +358,18 @@ onMounted(async () => {
                     </Teleport>
                 </div>
             </div>
-
-            <!-- Gradient line under header -->
             <div
                 class="h-px bg-linear-to-r from-transparent via-dealytics-purple/50 to-transparent"
             />
         </header>
-
-        <!-- Main content -->
         <main class="flex-1 pb-8">
             <slot />
         </main>
-
-        <!-- Footer -->
         <footer
             class="border-t border-border/50 bg-background/80 backdrop-blur-xl"
         >
             <div class="mx-auto max-w-7xl px-4 py-12 lg:px-6">
                 <div class="grid gap-8 md:grid-cols-4">
-                    <!-- Brand -->
                     <div class="md:col-span-2">
                         <div class="flex items-center text-base">
                             <AppLogoIcon class="h-[1cap] w-auto shrink-0" />
@@ -430,8 +408,6 @@ onMounted(async () => {
                             </a>
                         </div>
                     </div>
-
-                    <!-- Navigation -->
                     <div>
                         <h3 class="text-sm font-semibold text-dealytics-purple">
                             Navigation
@@ -447,8 +423,6 @@ onMounted(async () => {
                             </li>
                         </ul>
                     </div>
-
-                    <!-- Légal -->
                     <div>
                         <h3 class="text-sm font-semibold text-dealytics-purple">
                             Légal
@@ -465,8 +439,6 @@ onMounted(async () => {
                         </ul>
                     </div>
                 </div>
-
-                <!-- Bottom bar -->
                 <div
                     class="mt-10 flex flex-col items-center gap-2 border-t border-border/50 pt-6 text-[11px] text-muted-foreground/60 sm:flex-row sm:justify-between"
                 >
@@ -474,17 +446,21 @@ onMounted(async () => {
                         &copy; {{ new Date().getFullYear() }} Dealytics &mdash;
                         Tous droits réservés
                     </p>
-                    <p>
-                        Conçu par
-                        <a
-                            href="https://www.linkedin.com/in/noa-kexel-b5942b2a0/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="font-medium text-dealytics-purple transition-colors hover:text-dealytics-pink"
+                    <a
+                        href="https://www.linkedin.com/in/noa-kexel-b5942b2a0/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="group inline-flex items-center gap-1.5 text-dealytics-purple transition-colors duration-300 hover:text-dealytics-pink"
+                    >
+                        <CodeXml
+                            class="size-3.5 shrink-0 text-inherit transition-transform duration-300 ease-out group-hover:scale-110 group-hover:rotate-12 motion-reduce:transition-none motion-reduce:group-hover:scale-100 motion-reduce:group-hover:rotate-0"
+                            aria-hidden="true"
+                        />
+                        <span
+                            class="font-bold text-inherit transition-transform duration-300 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                            >Noa</span
                         >
-                            Noa
-                        </a>
-                    </p>
+                    </a>
                 </div>
             </div>
             <div

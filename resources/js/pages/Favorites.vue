@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { Heart, Bell, TrendingDown, Star, ArrowUpDown, Flame, Trash2, Gamepad2, ExternalLink, Link2 } from 'lucide-vue-next';
 import { ref, onMounted, computed } from 'vue';
 import GameImage from '@/components/GameImage.vue';
+import StatCard from '@/components/StatCard.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,12 +18,12 @@ import { useFavorites } from '@/composables/useFavorites';
 import type { FavoriteGame } from '@/composables/useFavorites';
 import { vReveal } from '@/directives/reveal';
 import { api } from '@/lib/api';
-
+import { fetchNexardaGame } from '@/lib/nexarda';
+import { deriveNormalPrice } from '@/lib/price';
 interface EnrichedFavorite extends FavoriteGame {
     currentPrice?: number;
     normalPrice?: number;
     savings?: number;
-    dealRating?: number;
     loading?: boolean;
 }
 
@@ -32,7 +33,6 @@ const { favorites: rawFavorites, loadFavorites, removeFavorite: removeFav } = us
 const enrichedFavorites = ref<EnrichedFavorite[]>([]);
 const sortBy = ref('date');
 
-// Reactive computed stats — update automatically when enrichedFavorites change
 const totalSaved = computed(() => {
     return Math.round(
         enrichedFavorites.value.reduce((acc, f) => {
@@ -57,7 +57,6 @@ const avgDiscount = computed(() => {
     return Math.round(sum / discounted.length);
 });
 
-// ── Steam wishlist ──────────────────────────────────────────
 interface WishlistItem {
     appId: number;
     title: string;
@@ -95,7 +94,7 @@ async function loadWishlist() {
         wishlistAvailable.value = data.available ?? true;
         wishlist.value = data.items ?? [];
     } catch {
-        // ignore — section just stays disconnected
+        // laisse la section déconnectée
     } finally {
         wishlistLoading.value = false;
     }
@@ -132,8 +131,7 @@ async function disconnectSteam() {
     wishlistAvailable.value = true;
 }
 
-// Open our own detail page (multi-store prices). The Nexarda id is usually
-// resolved server-side; otherwise resolve by title, then fall back to Steam.
+// Ouvre la fiche multi-boutiques ; sinon bascule vers le store Steam.
 async function openWishlistGame(item: WishlistItem) {
     if (item.nexardaId) {
         router.visit(`/game/${item.nexardaId}`);
@@ -153,7 +151,7 @@ async function openWishlistGame(item: WishlistItem) {
             return;
         }
     } catch {
-        // fall through to Steam store
+        // fallback Steam ci-dessous
     }
 
     window.open(item.storeUrl, '_blank', 'noopener');
@@ -173,23 +171,16 @@ onMounted(async () => {
 async function fetchPrices() {
     for (const fav of enrichedFavorites.value) {
         try {
-            const response = await fetch(`/api/nexarda/game/${fav.game_id}`);
+            const data = await fetchNexardaGame(fav.game_id);
 
-            if (response.ok) {
-                const data = await response.json();
-
-                if (data?.lowest != null) {
-                    const discount = Math.round(data.maxDiscount || 0);
-                    fav.currentPrice = data.lowest;
-                    fav.normalPrice = discount > 0 && discount < 100
-                        ? data.lowest / (1 - discount / 100)
-                        : (data.highest ?? data.lowest);
-                    fav.savings = discount;
-                    fav.dealRating = 0;
-                }
+            if (data?.lowest != null) {
+                const discount = Math.round(data.maxDiscount || 0);
+                fav.currentPrice = data.lowest;
+                fav.normalPrice = deriveNormalPrice(data.lowest, discount, data.highest) ?? undefined;
+                fav.savings = discount;
             }
         } catch {
-            // skip
+            // ignore
         } finally {
             fav.loading = false;
         }
@@ -222,7 +213,6 @@ const sortedFavorites = computed(() => {
     <Head title="Favoris" />
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        <!-- Header -->
         <div class="mb-8 flex items-center gap-3">
             <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-pink/20">
                 <Heart class="size-5 fill-dealytics-pink text-dealytics-pink" />
@@ -232,40 +222,38 @@ const sortedFavorites = computed(() => {
                 <p class="text-sm text-muted-foreground">Suivez les offres sur vos jeux préférés</p>
             </div>
         </div>
-
-        <!-- Stats Cards -->
         <div v-reveal="{ y: 16 }" class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
-                    <Heart class="size-4 text-dealytics-pink" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-purple">{{ enrichedFavorites.length }}</div>
-                <div class="text-xs text-muted-foreground">Jeux suivis</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
-                    <Bell class="size-4 text-dealytics-cyan" />
-                </div>
-                <div class="text-2xl font-bold text-foreground">{{ getActiveAlerts().length }}</div>
-                <div class="text-xs text-muted-foreground">Alertes actives</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
-                    <TrendingDown class="size-4 text-dealytics-cyan" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-cyan">{{ totalSaved }}€</div>
-                <div class="text-xs text-muted-foreground">Economies potentielles</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-purple/20">
-                    <Star class="size-4 text-dealytics-purple" />
-                </div>
-                <div class="text-2xl font-bold text-foreground">{{ avgDiscount > 0 ? `${avgDiscount}%` : '--' }}</div>
-                <div class="text-xs text-muted-foreground">Réduction moyenne</div>
-            </div>
+            <StatCard
+                :icon="Heart"
+                label="Jeux suivis"
+                :value="enrichedFavorites.length"
+                icon-class="text-dealytics-pink"
+                icon-bg-class="bg-dealytics-pink/20"
+                value-class="text-dealytics-purple"
+            />
+            <StatCard
+                :icon="Bell"
+                label="Alertes actives"
+                :value="getActiveAlerts().length"
+                icon-class="text-dealytics-cyan"
+                icon-bg-class="bg-dealytics-cyan/20"
+            />
+            <StatCard
+                :icon="TrendingDown"
+                label="Economies potentielles"
+                :value="`${totalSaved}€`"
+                icon-class="text-dealytics-cyan"
+                icon-bg-class="bg-dealytics-cyan/20"
+                value-class="text-dealytics-cyan"
+            />
+            <StatCard
+                :icon="Star"
+                label="Réduction moyenne"
+                :value="avgDiscount > 0 ? `${avgDiscount}%` : '--'"
+                icon-class="text-dealytics-purple"
+                icon-bg-class="bg-dealytics-purple/20"
+            />
         </div>
-
-        <!-- Sort -->
         <div class="mb-6 border-gradient rounded-xl px-4 py-3">
             <div class="flex items-center gap-3">
                 <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -285,8 +273,6 @@ const sortedFavorites = computed(() => {
                 </Select>
             </div>
         </div>
-
-        <!-- Favorites Grid -->
         <div v-if="sortedFavorites.length > 0" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Link
                 v-for="fav in sortedFavorites"
@@ -300,8 +286,6 @@ const sortedFavorites = computed(() => {
                         :alt="fav.title"
                         class="size-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-
-                    <!-- Deal badge (based on discount) -->
                     <div v-if="fav.savings && fav.savings >= 50" class="absolute top-2 left-2">
                         <span class="inline-flex items-center gap-1 rounded-md border border-dealytics-pink/30 bg-dealytics-pink/20 px-2 py-0.5 text-[10px] font-bold uppercase text-dealytics-pink">
                             <Flame class="size-2.5" />
@@ -314,16 +298,12 @@ const sortedFavorites = computed(() => {
                             BON
                         </span>
                     </div>
-
-                    <!-- Discount badge -->
                     <div
                         v-if="fav.savings && fav.savings > 0"
                         class="absolute top-2 right-2 rounded-md bg-dealytics-purple px-2 py-0.5 text-[11px] font-bold text-white"
                     >
                         -{{ Math.round(fav.savings) }}%
                     </div>
-
-                    <!-- Remove button -->
                     <button
                         class="absolute bottom-2 right-2 flex size-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-all hover:bg-red-500/50"
                         @click.prevent="removeFavorite(fav.game_id)"
@@ -357,8 +337,6 @@ const sortedFavorites = computed(() => {
                 </div>
             </Link>
         </div>
-
-        <!-- Empty state -->
         <div v-else class="flex flex-col items-center justify-center py-20 text-center">
             <Heart class="mb-4 size-16 text-muted-foreground/20" />
             <h3 class="font-heading text-lg font-semibold text-foreground">Aucun favori</h3>
@@ -369,8 +347,6 @@ const sortedFavorites = computed(() => {
                 Rechercher des jeux
             </Link>
         </div>
-
-        <!-- Steam Wishlist -->
         <section v-reveal class="mt-12">
             <div class="mb-5 flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -391,8 +367,6 @@ const sortedFavorites = computed(() => {
                     Déconnecter
                 </button>
             </div>
-
-            <!-- Connect form -->
             <div v-if="!steamConnected" class="border-gradient rounded-xl p-6">
                 <p class="mb-3 text-sm text-muted-foreground">
                     Connecte ton profil Steam pour afficher ta liste de souhaits.
@@ -418,13 +392,9 @@ const sortedFavorites = computed(() => {
                 </div>
                 <p v-if="steamError" class="mt-2 text-xs text-red-400">{{ steamError }}</p>
             </div>
-
-            <!-- Loading -->
             <div v-else-if="wishlistLoading" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div v-for="i in 3" :key="i" class="h-24 animate-pulse rounded-xl bg-secondary/40" />
             </div>
-
-            <!-- Private / empty -->
             <div
                 v-else-if="!wishlistAvailable"
                 class="border-gradient rounded-xl p-6 text-center"
@@ -442,8 +412,6 @@ const sortedFavorites = computed(() => {
                 <Gamepad2 class="mx-auto mb-2 size-8 text-muted-foreground/40" />
                 <p class="text-sm text-muted-foreground">Ta wishlist Steam est vide.</p>
             </div>
-
-            <!-- Wishlist grid -->
             <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div
                     v-for="item in wishlist"

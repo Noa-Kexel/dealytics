@@ -4,41 +4,18 @@ import { Flame, Heart } from 'lucide-vue-next';
 import { computed, ref, nextTick } from 'vue';
 import GameImage from '@/components/GameImage.vue';
 import { useFavorites } from '@/composables/useFavorites';
-
-interface GameItem {
-    id: string;
-    title: string;
-    image: string | null;
-    price: number | null;
-    normalPrice: number | null;
-    discount: number;
-    upcoming: boolean;
-    platforms: string[];
-}
+import { platformName } from '@/lib/platforms';
+import type { GameItem } from '@/types';
 
 const props = defineProps<{
     game: GameItem;
 }>();
 
-// Slug → display name for the platforms Nexarda returns.
-const platformNames: Record<string, string> = {
-    steam: 'Steam',
-    gog: 'GOG',
-    'epic-games-launcher': 'Epic',
-    xbox: 'Xbox',
-    'xbox-play-anywhere': 'Xbox',
-    playstation: 'PlayStation',
-    nintendo: 'Nintendo',
-    'ea-app': 'EA',
-    'ubisoft-connect': 'Ubisoft',
-    'battle-net': 'Battle.net',
-};
-
 const platformLabels = computed(() => {
     const seen = new Set<string>();
 
-    for (const slug of props.game.platforms) {
-        const name = platformNames[slug];
+    for (const slug of props.game.platforms ?? []) {
+        const name = platformName(slug);
 
         if (name) {
             seen.add(name);
@@ -51,12 +28,10 @@ const platformLabels = computed(() => {
 const discount = computed(() => Math.round(props.game.discount));
 const thumb = computed(() => props.game.image || '');
 
-
 function openGame() {
     router.visit(`/game/${props.game.id}`);
 }
 
-// Favorite logic (via composable — persists to DB when authenticated)
 const { favoriteIds, toggleFavorite: toggle } = useFavorites();
 const heartAnimating = ref(false);
 
@@ -67,7 +42,6 @@ async function toggleFavorite(e: Event) {
 
     await toggle(props.game.id, props.game.title, thumb.value);
 
-    // Trigger heart animation
     heartAnimating.value = false;
     await nextTick();
     heartAnimating.value = true;

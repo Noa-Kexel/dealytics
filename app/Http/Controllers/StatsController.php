@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Favorite;
 use App\Models\PriceAlert;
 use App\Models\PriceSnapshot;
+use App\Support\Price;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -13,8 +14,7 @@ use Illuminate\Support\Facades\DB;
 class StatsController extends Controller
 {
     /**
-     * Real, platform-wide stats for the home page hero.
-     * Cached so the most-hit page stays cheap.
+     * Stats globales pour le hero de l'accueil (cache 10 min).
      */
     public function index(): JsonResponse
     {
@@ -27,10 +27,7 @@ class StatsController extends Controller
         return response()->json($stats);
     }
 
-    /**
-     * Distinct games the platform actually tracks — i.e. those with recorded
-     * price history, or that a user has favorited or set an alert on.
-     */
+    /** Jeux distincts avec historique, favori ou alerte. */
     private function trackedGames(): int
     {
         $union = PriceSnapshot::query()->select('game_id')
@@ -40,9 +37,7 @@ class StatsController extends Controller
         return DB::query()->fromSub($union, 'tracked')->count();
     }
 
-    /**
-     * Games whose most recent snapshot is at least 50% off right now.
-     */
+    /** Jeux dont le dernier snapshot est à −50 % ou plus. */
     private function hotDeals(): int
     {
         return $this->latestSnapshots()
@@ -51,25 +46,19 @@ class StatsController extends Controller
             ->count('price_snapshots.game_id');
     }
 
-    /**
-     * Total € of savings currently available across tracked deals: for each
-     * game's latest snapshot, (original price − discounted price), summed.
-     */
+    /** Somme des économies (prix d'origine − prix actuel) sur les derniers snapshots. */
     private function totalSavings(): int
     {
+        $expr = Price::sqlUnitSavingsExpression();
         $saved = (float) $this->latestSnapshots()
             ->whereBetween('price_snapshots.discount', [1, 99])
-            ->selectRaw(
-                'COALESCE(SUM(price_snapshots.price / (1 - price_snapshots.discount / 100.0) - price_snapshots.price), 0) as saved'
-            )
+            ->selectRaw("COALESCE(SUM({$expr}), 0) as saved")
             ->value('saved');
 
         return (int) round(max(0, $saved));
     }
 
-    /**
-     * Base query joined to the most recent snapshot of every game.
-     */
+    /** Dernier snapshot par jeu. */
     private function latestSnapshots(): Builder
     {
         $latest = PriceSnapshot::query()

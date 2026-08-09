@@ -1,29 +1,13 @@
 import type { Directive, DirectiveBinding } from 'vue';
 
-/**
- * `v-reveal` — AOS-style scroll reveal, built on IntersectionObserver so it plays
- * nicely with Inertia page transitions (no global re-init needed) and degrades
- * gracefully (content stays visible when motion is reduced or IO is missing).
- *
- * Usage:
- *   <div v-reveal />                       // fade + rise with defaults
- *   <div v-reveal="{ delay: 120 }" />      // stagger a card
- *   <div v-reveal="{ y: 0, scale: 0.96 }" />  // zoom-in
- */
+/** Options pour l'animation d'apparition au scroll (`v-reveal`). */
 export interface RevealOptions {
-    /** Vertical offset to rise from, in px (default 24). */
     y?: number;
-    /** Horizontal offset to slide from, in px (default 0). */
     x?: number;
-    /** Transition duration in ms (default 600). */
     duration?: number;
-    /** Delay before playing in ms — use to stagger siblings (default 0). */
     delay?: number;
-    /** Play once then stop observing (default true). */
     once?: boolean;
-    /** Visibility ratio that triggers the reveal (default 0.12). */
     threshold?: number;
-    /** Initial scale to grow from (default 1 = no scaling). */
     scale?: number;
 }
 
@@ -69,8 +53,7 @@ export const vReveal: Directive<RevealEl, RevealOptions | undefined> = {
             scale: binding.value?.scale ?? 1,
         };
 
-        // No animation when the user opts out of motion, or when IO is absent
-        // (old browsers / SSR): leave the element in its natural visible state.
+        // Pas d'anim si reduced-motion ou IntersectionObserver indisponible.
         if (prefersReducedMotion() || typeof IntersectionObserver === 'undefined') {
             return;
         }
@@ -97,7 +80,6 @@ export const vReveal: Directive<RevealEl, RevealOptions | undefined> = {
         observer.observe(el);
         el.__revealObserver = observer;
 
-        // Release the compositor hint once the entrance has played.
         el.addEventListener(
             'transitionend',
             () => {

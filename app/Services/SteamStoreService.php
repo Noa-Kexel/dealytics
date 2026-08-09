@@ -8,10 +8,7 @@ use Illuminate\Support\Facades\Http;
 
 class SteamStoreService
 {
-    /**
-     * Search by title and return enriched game data for a game page.
-     * Uses Steam's public store API — no API key required.
-     */
+    /** Enrichit une fiche jeu via l'API store Steam publique. */
     public function getGameByTitle(string $title): ?array
     {
         $appId = $this->searchAppId($title);

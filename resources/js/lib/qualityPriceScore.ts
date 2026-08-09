@@ -23,9 +23,8 @@ export function getQualityValue(
 }
 
 /**
- * Price value (0-100): how good the current best price is, positioned between
- * the original (no-promo) price and free. Computed from real prices, not the
- * API discount field. Current = original → 0 ; current = free → 100.
+ * Valeur prix (0–100) : qualité du prix actuel entre le prix hors promo et gratuit.
+ * Basé sur les prix réels, pas sur le champ discount de l'API.
  */
 export function getPriceValue(currentPrice: number, originalPrice: number): number {
     if (originalPrice <= 0 || currentPrice >= originalPrice) {
@@ -87,7 +86,7 @@ export function getScoreLabel(score: number): string {
     }
 
     if (score >= 35) {
-        return 'Moyen';
+        return 'Correct';
     }
 
     return 'Faible';

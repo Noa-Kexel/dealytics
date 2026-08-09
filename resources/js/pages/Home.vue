@@ -30,24 +30,8 @@ import {
 } from '@/components/ui/select';
 import { useFavorites } from '@/composables/useFavorites';
 import { vReveal } from '@/directives/reveal';
-
-interface GameItem {
-    id: string;
-    title: string;
-    image: string | null;
-    price: number | null;
-    normalPrice: number | null;
-    discount: number;
-    upcoming: boolean;
-    platforms: string[];
-}
-
-interface GamesResponse {
-    games: GameItem[];
-    page: number;
-    pages: number;
-    total: number;
-}
+import { FILTER_PLATFORMS } from '@/lib/platforms';
+import type { GameItem, GamesResponse } from '@/types';
 
 const features = [
     {
@@ -68,19 +52,11 @@ const features = [
     {
         icon: Star,
         title: 'Score Qualité/Prix',
-        description: 'Notre algorithme exclusif évalue chaque deal',
+        description: 'Note chaque deal selon qualité et réduction',
     },
 ];
 
-const PLATFORMS = [
-    { slug: 'steam', name: 'Steam' },
-    { slug: 'gog', name: 'GOG' },
-    { slug: 'epic-games-launcher', name: 'Epic Games' },
-    { slug: 'xbox', name: 'Xbox' },
-    { slug: 'playstation', name: 'PlayStation' },
-    { slug: 'nintendo', name: 'Nintendo' },
-];
-
+const PLATFORMS = FILTER_PLATFORMS;
 const searchQuery = ref('');
 const games = ref<GameItem[]>([]);
 const loading = ref(false);
@@ -104,13 +80,12 @@ onMounted(() => {
     loadStats();
 });
 
-// Client-side sort + filter over the fetched pages (Nexarda's API ignores
-// sort/filter params, so we apply them here).
+// Tri / filtre côté client (l'API Nexarda ignore ces params).
 function filterAndSort(source: GameItem[]): GameItem[] {
     let list = source.filter((g) => g.price !== null);
 
     if (selectedPlatform.value !== 'all') {
-        list = list.filter((g) => g.platforms.includes(selectedPlatform.value));
+        list = list.filter((g) => g.platforms?.includes(selectedPlatform.value));
     }
 
     if (maxPrice.value !== 'all') {
@@ -134,7 +109,7 @@ function filterAndSort(source: GameItem[]): GameItem[] {
         case 'title':
             sorted.sort((a, b) => a.title.localeCompare(b.title));
             break;
-        // 'popular' keeps the API's popularity order
+        // 'popular' = ordre de popularité de l'API
     }
 
     return sorted;
@@ -144,8 +119,6 @@ const displayedGames = computed(() => filterAndSort(games.value));
 
 const hasMore = computed(() => currentPage.value < totalPages.value);
 
-// Real, platform-wide stats (computed server-side from tracked games,
-// price snapshots and logged purchases — see StatsController).
 const stats = ref({ trackedGames: 0, hotDeals: 0, totalSavings: 0 });
 
 async function loadStats() {
@@ -156,7 +129,7 @@ async function loadStats() {
             stats.value = await response.json();
         }
     } catch {
-        // stats are non-critical — leave the defaults
+        // stats non critiques
     }
 }
 
@@ -216,9 +189,7 @@ async function loadMore() {
     }
 }
 
-// ── Autocomplete ────────────────────────────────────────────
-// The dropdown updates live as the user types (its own lightweight fetch),
-// while the background grid only refreshes on Enter — see onSearchEnter.
+// Autocomplete : suggestions en live, grille seulement au Enter.
 const showSuggestions = ref(false);
 const activeSuggestion = ref(-1);
 const searchContainer = ref<HTMLElement | null>(null);
@@ -227,7 +198,6 @@ let suggestionSeq = 0;
 
 const suggestions = computed(() => filterAndSort(suggestionResults.value).slice(0, 6));
 
-// Fetches suggestions only — leaves the background grid (games.value) untouched.
 async function fetchSuggestions() {
     if (!searchQuery.value.trim()) {
         suggestionResults.value = [];
@@ -240,7 +210,7 @@ async function fetchSuggestions() {
     try {
         const data = await fetchGames(1);
 
-        // Ignore out-of-order responses from earlier keystrokes.
+        // Ignore les réponses obsolètes (frappe rapide).
         if (seq === suggestionSeq) {
             suggestionResults.value = data.games;
         }
@@ -251,7 +221,6 @@ async function fetchSuggestions() {
     }
 }
 
-// Debounced: only refreshes the dropdown while typing.
 function onSearchInput() {
     showSuggestions.value = searchQuery.value.trim().length > 0;
     activeSuggestion.value = -1;
@@ -315,19 +284,15 @@ function onDocumentMousedown(event: MouseEvent) {
 
 onMounted(() => document.addEventListener('mousedown', onDocumentMousedown));
 onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMousedown));
-
-// Sort/filter changes are purely client-side — no refetch needed.
 </script>
 
 <template>
     <Head title="Accueil" />
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        <!-- Hero Section -->
         <div
             class="border-gradient-strong relative mb-8 overflow-hidden rounded-2xl p-8 md:p-12"
         >
-            <!-- Background glow effects -->
             <div
                 class="bg-glow-purple pointer-events-none absolute -top-24 -right-24 size-96 opacity-50"
             />
@@ -405,8 +370,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                     </div>
             </div>
         </div>
-
-        <!-- Search Bar -->
         <div ref="searchContainer" class="relative mb-4">
             <div
                 class="border-gradient flex items-center gap-3 rounded-xl px-4 py-3"
@@ -429,8 +392,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                     @keydown.esc="closeSuggestions"
                 />
             </div>
-
-            <!-- Suggestions dropdown -->
             <div
                 v-if="showSuggestions && suggestions.length > 0"
                 class="absolute top-full right-0 left-0 z-50 mt-2 overflow-hidden rounded-xl border border-border/60 bg-card/95 shadow-2xl backdrop-blur-xl"
@@ -464,8 +425,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 </button>
             </div>
         </div>
-
-        <!-- Filters -->
         <div class="border-gradient mb-8 rounded-xl px-4 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div
@@ -542,8 +501,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 </button>
             </div>
         </div>
-
-        <!-- Results -->
         <div
             v-if="loading"
             class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
@@ -563,8 +520,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 :style="{ animationDelay: `${Math.min(index, 11) * 50}ms` }"
             />
         </div>
-
-        <!-- Error state -->
         <div
             v-else-if="loadError"
             class="flex flex-col items-center justify-center py-20 text-center"
@@ -586,8 +541,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 Réessayer
             </Button>
         </div>
-
-        <!-- Load More -->
         <div v-if="hasMore && !loading && displayedGames.length > 0" class="mt-8 flex justify-center">
             <Button
                 variant="outline"
@@ -604,8 +557,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 </template>
             </Button>
         </div>
-
-        <!-- Loading more skeletons -->
         <div
             v-if="loadingMore"
             class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4"
@@ -626,11 +577,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 filtres.
             </p>
         </div>
-
-        <!-- Separator -->
         <div class="mt-16 h-px bg-linear-to-r from-transparent via-border to-transparent" />
-
-        <!-- Why Dealytics -->
         <section class="mt-16">
             <div v-reveal class="text-center">
                 <h2 class="font-heading text-2xl font-bold text-foreground md:text-3xl">
@@ -662,8 +609,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 </div>
             </div>
         </section>
-
-        <!-- CTA -->
         <section
             v-reveal
             class="border-gradient-strong relative mt-12 overflow-hidden rounded-2xl p-8 text-center md:p-12"

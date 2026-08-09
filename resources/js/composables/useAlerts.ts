@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { api } from '@/lib/api';
+import { fetchNexardaGame } from '@/lib/nexarda';
 
 export interface PriceAlert {
     id?: number;
@@ -192,7 +193,7 @@ export function useAlerts() {
                     body: { game_id: gameID, title, target_price: targetPrice },
                 });
             } catch {
-                // keep optimistic state
+                // garde l'état optimiste
             }
         } else {
             saveToStorage();
@@ -210,7 +211,7 @@ export function useAlerts() {
             try {
                 await api(`/api/alerts/${gameID}`, { method: 'DELETE' });
             } catch {
-                // already removed optimistically
+                // déjà retiré en optimiste
             }
         } else {
             saveToStorage();
@@ -284,13 +285,7 @@ export function useAlerts() {
             const alertGameId = alert.game_id || alert.gameID;
 
             try {
-                const response = await fetch(`/api/nexarda/game/${alertGameId}`);
-
-                if (!response.ok) {
-                    continue;
-                }
-
-                const data = await response.json();
+                const data = await fetchNexardaGame(alertGameId!);
 
                 if (data?.lowest == null) {
                     continue;
@@ -326,7 +321,7 @@ export function useAlerts() {
                     });
                 }
             } catch {
-                // Skip
+                // ignore
             }
         }
 

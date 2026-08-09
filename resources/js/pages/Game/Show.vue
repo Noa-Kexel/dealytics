@@ -36,6 +36,10 @@ import {
 import { useAlerts } from '@/composables/useAlerts';
 import { useFavorites } from '@/composables/useFavorites';
 import { vReveal } from '@/directives/reveal';
+import type { NexardaGamePrices, NexardaOffer } from '@/lib/nexarda';
+import { fetchNexardaGame } from '@/lib/nexarda';
+import { extractOfferPlatform, offerPlatformLabel } from '@/lib/platforms';
+import { deriveNormalPrice } from '@/lib/price';
 import {
     getQualityPriceScore,
     getQualityValue,
@@ -45,34 +49,6 @@ import {
     getScoreLabel,
     hasQualityData as checkHasQualityData,
 } from '@/lib/qualityPriceScore';
-
-interface NexardaOffer {
-    url: string | null;
-    store: string;
-    storeImage: string | null;
-    storeType: string;
-    official: boolean;
-    edition: string | null;
-    editionFull: string | null;
-    platform: string | null;
-    region: string | null;
-    price: number;
-    discount: number;
-    coupon: { code: string; discount: number; priceWithout: number } | null;
-}
-
-interface NexardaData {
-    game: { id: number; name: string; cover: string | null };
-    currency: string;
-    currencySymbol: string;
-    lowest: number | null;
-    highest: number | null;
-    maxDiscount: number;
-    storeCount: number;
-    offerCount: number;
-    editions: string[];
-    offers: NexardaOffer[];
-}
 
 interface SteamData {
     source?: 'steam';
@@ -104,18 +80,17 @@ interface PricePoint {
     store: string;
 }
 
-const nexarda = ref<NexardaData | null>(null);
+const nexarda = ref<NexardaGamePrices | null>(null);
 const loading = ref(true);
 const alertPrice = ref('');
 const alertSet = ref(false);
 
-// Real price history — from ITAD (full series) or our daily snapshots.
+// Historique ITAD (série complète) ou snapshots quotidiens.
 const priceHistory = ref<PricePoint[]>([]);
 const historySource = ref<string | null>(null);
 const hasHistory = computed(() => priceHistory.value.length >= 2);
 
-// Time-range selector. Each range crops the series to its window; ranges wider
-// than the available data are hidden so we never show two identical filters.
+// Plages qui ne réduisent pas réellement les données sont masquées.
 const HISTORY_RANGES = [
     { key: '1m', label: '1 mois', days: 31 },
     { key: '3m', label: '3 mois', days: 92 },
@@ -138,12 +113,10 @@ const dataSpanDays = computed(() => {
     return (sorted[sorted.length - 1].date - sorted[0].date) / 86400;
 });
 
-// Only offer ranges that actually crop the data (always keep "Tout").
 const availableRanges = computed(() =>
     HISTORY_RANGES.filter((r) => r.days === Infinity || r.days < dataSpanDays.value),
 );
 
-// Default to "1 an" when the data spans that far, else the widest range.
 const preferredRange = computed<RangeKey>(() =>
     availableRanges.value.some((r) => r.key === '1y') ? '1y' : 'all',
 );
@@ -155,8 +128,7 @@ function selectRange(key: RangeKey) {
     historyRange.value = key;
 }
 
-// Keep the active range sensible as data loads: honor the user's choice once
-// made (clamping it if it becomes unavailable), otherwise track the default.
+// Conserve le choix utilisateur si encore valide, sinon bascule sur le défaut.
 watch(
     [availableRanges, preferredRange],
     () => {
@@ -169,10 +141,7 @@ watch(
     { immediate: true },
 );
 
-// Collapse runs of identical prices into their step boundaries. The series is a
-// step function (a price holds until the next change), so this is lossless for
-// the chart while removing daily-snapshot noise and keeping every edge on a
-// real date — the line stays faithful across every time range.
+/** Garde les bornes de chaque palier de prix (fonction en escalier). */
 function compressSteps(points: PricePoint[]): PricePoint[] {
     if (points.length <= 2) {
         return points;
@@ -209,7 +178,7 @@ const visibleHistory = computed(() => {
 
         points = [];
 
-        // Anchor the line at the window start with the price then in effect.
+        // Ancre au début de la fenêtre avec le prix alors en vigueur.
         if (before) {
             points.push({ date: cutoff, price: before.price, store: before.store });
         }
@@ -217,8 +186,7 @@ const visibleHistory = computed(() => {
         points.push(...inRange);
     }
 
-    // Extend the line to "now". Use the live current price as the latest truth
-    // so the chart's endpoint matches the headline price shown on the page.
+    // Prolonge jusqu'à maintenant avec le prix live (aligné sur le prix affiché).
     const last = points.at(-1);
     const endPrice = currentPrice.value > 0 ? currentPrice.value : last?.price;
 
@@ -229,7 +197,6 @@ const visibleHistory = computed(() => {
     return compressSteps(points);
 });
 
-// Lowest price observed over our tracking window (snapshots + current price).
 const lowestPoint = computed(() => {
     if (!priceHistory.value.length) {
         return null;
@@ -260,8 +227,7 @@ const priceWindow = computed(() => {
         ? { min: Math.min(...prices), max: Math.max(...prices) }
         : { min: 0, max: 0 };
 });
-// Only celebrate "at the lowest" when the price has actually moved down to it,
-// not when it has simply been flat the whole tracking window.
+// « Au plus bas » seulement si le prix a réellement bougé (pas une courbe plate).
 const isAtLowest = computed(
     () =>
         hasHistory.value &&
@@ -269,7 +235,6 @@ const isAtLowest = computed(
         currentPrice.value <= lowestEver.value * 1.02,
 );
 
-// Steam enrichment
 const steam = ref<SteamData | null>(null);
 const steamLoading = ref(false);
 const screenshotIndex = ref(0);
@@ -283,7 +248,6 @@ const heroImage = computed(
 
 const coverImage = computed(() => nexarda.value?.game.cover || steam.value?.background_image || '');
 
-// Cheapest available offer drives the headline price.
 const bestOffer = computed(() => {
     if (!nexarda.value?.offers.length) {
         return null;
@@ -296,39 +260,16 @@ const bestOffer = computed(() => {
 
 const currentPrice = computed(() => nexarda.value?.lowest ?? bestOffer.value?.price ?? 0);
 const savingsPercent = computed(() => Math.round(bestOffer.value?.discount ?? nexarda.value?.maxDiscount ?? 0));
-const normalPrice = computed(() => {
-    if (savingsPercent.value > 0 && savingsPercent.value < 100) {
-        return currentPrice.value / (1 - savingsPercent.value / 100);
-    }
+const normalPrice = computed(
+    () => deriveNormalPrice(currentPrice.value, savingsPercent.value, nexarda.value?.highest) ?? currentPrice.value,
+);
 
-    return nexarda.value?.highest ?? currentPrice.value;
-});
-
-const PLATFORM_LABELS: Record<string, string> = {
-    WINDOWS: 'PC',
-    MAC: 'Mac',
-    LINUX: 'Linux',
-    'XBOX-XS': 'Xbox Series',
-    'XBOX-ONE': 'Xbox One',
-    XBOX: 'Xbox',
-    PS5: 'PlayStation 5',
-    PS4: 'PlayStation 4',
-    SWITCH: 'Nintendo Switch',
-    'SWITCH-2': 'Nintendo Switch 2',
-};
-
-function extractOfferPlatform(offer: NexardaOffer): string | null {
-    if (offer.platform) {
-        return offer.platform;
-    }
-
-    const match = offer.editionFull?.match(/FOR:([A-Z0-9-]+)/i);
-
-    return match ? match[1].toUpperCase() : null;
+function offerPlatform(offer: NexardaOffer): string | null {
+    return extractOfferPlatform(offer.editionFull, offer.platform);
 }
 
 function platformLabel(slug: string): string {
-    return PLATFORM_LABELS[slug] ?? slug.replace(/-/g, ' ');
+    return offerPlatformLabel(slug);
 }
 
 function cheapestOffer(offers: NexardaOffer[], official?: boolean): NexardaOffer | null {
@@ -351,7 +292,7 @@ const offerPlatforms = computed(() => {
     const counts = new Map<string, number>();
 
     for (const offer of nexarda.value?.offers ?? []) {
-        const platform = extractOfferPlatform(offer);
+        const platform = offerPlatform(offer);
 
         if (!platform) {
             continue;
@@ -370,7 +311,7 @@ const filteredOffers = computed(() => {
         return offers;
     }
 
-    return offers.filter((offer) => extractOfferPlatform(offer) === selectedOfferPlatform.value);
+    return offers.filter((offer) => offerPlatform(offer) === selectedOfferPlatform.value);
 });
 
 const offersTotalPages = computed(() =>
@@ -396,7 +337,7 @@ const offersPageLabel = computed(() => {
     return `${start}–${end} sur ${total}`;
 });
 
-/** Sliding window of page numbers (with null = ellipsis) when many pages. */
+/** Numéros de page avec ellipses si trop de pages. */
 const offersPageNumbers = computed(() => {
     const total = offersTotalPages.value;
     const current = offersPage.value;
@@ -461,16 +402,13 @@ watch(offersTotalPages, (total) => {
     }
 });
 
-// Quality/price score (/100) — combines Steam quality and current discount.
 const hasQualityData = computed(() =>
     checkHasQualityData(steam.value?.metacritic, steam.value?.rating),
 );
 const qualityValue = computed(() =>
     getQualityValue(steam.value?.metacritic, steam.value?.rating),
 );
-// Original (no-promo) price = the highest current offer across stores, i.e.
-// a store still selling at full price. Falls back to the discount-derived
-// normal price. This drives the price-value component of the score.
+// Prix hors promo = offre la plus chère actuelle, sinon prix dérivé de la remise.
 const originalPrice = computed(() =>
     Math.max(nexarda.value?.highest ?? 0, normalPrice.value),
 );
@@ -486,7 +424,6 @@ const scoreColor = computed(() => getScoreColor(qualityPriceScore.value));
 const scoreBorderColor = computed(() => getScoreBorderColor(qualityPriceScore.value));
 const scoreLabel = computed(() => getScoreLabel(qualityPriceScore.value));
 
-// Favorite logic (via composable — persists to DB when authenticated)
 const { favoriteIds, toggleFavorite: toggleFav, loadFavorites } = useFavorites();
 const heartAnimating = ref(false);
 
@@ -503,7 +440,6 @@ async function toggleFavorite() {
     }, 400);
 }
 
-// Alert logic
 const alertError = ref('');
 
 async function setAlertPrice() {
@@ -539,7 +475,6 @@ function clearAlert() {
     alertError.value = '';
 }
 
-// Steam screenshot navigation
 function prevScreenshot() {
     if (steam.value && steam.value.screenshots.length > 0) {
         screenshotIndex.value = (screenshotIndex.value - 1 + steam.value.screenshots.length) % steam.value.screenshots.length;
@@ -577,14 +512,8 @@ onMounted(async () => {
     loadFavorites();
 
     try {
-        // Primary data: Nexarda prices by game id
-        const response = await fetch(`/api/nexarda/game/${gameId}`);
+        nexarda.value = await fetchNexardaGame(gameId);
 
-        if (response.ok) {
-            nexarda.value = await response.json();
-        }
-
-        // Real price history — ITAD (full series) with snapshot fallback.
         try {
             const titleParam = encodeURIComponent(nexarda.value?.game.name ?? '');
             const historyResponse = await fetch(
@@ -603,10 +532,9 @@ onMounted(async () => {
                 );
             }
         } catch {
-            // history is optional
+            // historique optionnel
         }
 
-        // Check existing alert
         const existingAlert = getAlert(gameId);
 
         if (existingAlert) {
@@ -614,7 +542,6 @@ onMounted(async () => {
             alertSet.value = true;
         }
 
-        // Steam enrichment by title
         if (nexarda.value?.game.name) {
             steamLoading.value = true;
 
@@ -625,13 +552,13 @@ onMounted(async () => {
                     steam.value = await steamResponse.json();
                 }
             } catch {
-                // enrichment is optional
+                // enrichissement Steam optionnel
             }
 
             steamLoading.value = false;
         }
     } catch {
-        // handle error
+        // échec chargement principal
     } finally {
         loading.value = false;
     }
@@ -642,7 +569,6 @@ onMounted(async () => {
     <Head :title="title || 'Chargement...'" />
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        <!-- Back button -->
         <Link
             href="/"
             class="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -650,34 +576,24 @@ onMounted(async () => {
             <ArrowLeft class="size-4" />
             Retour à l'accueil
         </Link>
-
-        <!-- Loading state -->
         <div v-if="loading" class="flex flex-col items-center justify-center py-20">
             <div class="size-8 animate-spin rounded-full border-2 border-dealytics-purple border-t-transparent" />
             <p class="mt-4 text-sm text-muted-foreground">Chargement du jeu...</p>
         </div>
 
         <template v-else-if="nexarda">
-            <!-- Hero image + title -->
             <div class="relative mb-8 overflow-hidden rounded-2xl border-gradient-strong">
                 <div class="relative">
-                    <!-- Background image fills the hero; on mobile the content
-                         below drives the height so nothing is clipped, while md+
-                         keeps the wide cinematic ratio. -->
                     <GameImage
                         :src="heroImage"
                         :alt="title"
                         class="absolute inset-0 size-full object-cover"
                     />
                     <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/65 to-black/20 md:via-black/60 md:to-transparent" />
-
-                    <!-- Content overlay -->
                     <div class="relative flex min-h-60 flex-col justify-end p-5 sm:min-h-72 sm:p-6 md:aspect-[21/9] md:min-h-0 md:p-8">
                         <h1 class="font-heading text-2xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] sm:text-3xl md:text-4xl">
                             {{ title }}
                         </h1>
-
-                        <!-- Steam metadata tags -->
                         <div v-if="steam" class="mt-2 flex flex-wrap items-center gap-2">
                             <span
                                 v-for="genre in steam.genres"
@@ -697,16 +613,13 @@ onMounted(async () => {
                         </div>
 
                         <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <!-- Deal Badge -->
                             <DealBadge
                                 :current-price="currentPrice"
                                 :lowest-price="lowestEver"
-                                :normal-price="normalPrice"
                                 :savings="savingsPercent"
                                 :at-lowest="isAtLowest"
                             />
 
-                            <!-- Price -->
                             <div class="flex items-baseline gap-2">
                                 <span class="text-3xl font-bold text-dealytics-cyan">
                                     {{ currentPrice === 0 ? 'Indisponible' : `${currentPrice.toFixed(2)}${currencySymbol}` }}
@@ -725,12 +638,8 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
-
-            <!-- Main grid -->
             <div class="grid gap-6 lg:grid-cols-3">
-                <!-- Left column: about + screenshots + offers -->
                 <div class="min-w-0 space-y-6 lg:col-span-2">
-                    <!-- Steam Description -->
                     <div v-if="steamLoading" class="border-gradient rounded-xl p-6">
                         <div class="mb-3 h-5 w-40 animate-pulse rounded bg-secondary" />
                         <div class="space-y-2">
@@ -762,8 +671,6 @@ onMounted(async () => {
                         >
                             {{ shortDescription ? 'Lire la suite ↓' : 'Réduire ↑' }}
                         </button>
-
-                        <!-- Platforms & Developers inline -->
                         <div v-if="steam.platforms.length || steam.developers.length" class="mt-4 flex flex-wrap gap-4 border-t border-border/50 pt-4">
                             <div v-if="steam.platforms.length" class="flex items-start gap-2">
                                 <Monitor class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
@@ -782,8 +689,6 @@ onMounted(async () => {
                                 <span class="text-xs text-muted-foreground">{{ steam.developers.join(', ') }}</span>
                             </div>
                         </div>
-
-                        <!-- Tags -->
                         <div v-if="steam.tags.length" class="mt-3 flex flex-wrap gap-1.5">
                             <span
                                 v-for="tag in steam.tags"
@@ -795,8 +700,6 @@ onMounted(async () => {
                             </span>
                         </div>
                     </div>
-
-                    <!-- Steam Screenshots Gallery -->
                     <div v-if="steamLoading" class="border-gradient rounded-xl p-6">
                         <div class="mb-3 h-5 w-32 animate-pulse rounded bg-secondary" />
                         <div class="aspect-video w-full animate-pulse rounded-lg bg-secondary" />
@@ -833,7 +736,6 @@ onMounted(async () => {
                                 />
                             </Transition>
                         </div>
-                        <!-- Thumbnail strip -->
                         <div v-if="steam.screenshots.length > 1" class="mt-3 flex gap-2 overflow-x-auto">
                             <button
                                 v-for="(url, idx) in steam.screenshots"
@@ -846,8 +748,6 @@ onMounted(async () => {
                             </button>
                         </div>
                     </div>
-
-                    <!-- Price history (ITAD full series, or daily snapshots) -->
                     <div v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center justify-between">
                             <div class="flex items-center gap-2">
@@ -859,8 +759,6 @@ onMounted(async () => {
                                 <span class="font-medium text-dealytics-cyan">IsThereAnyDeal</span>
                             </div>
                         </div>
-
-                        <!-- Range selector -->
                         <div v-if="hasHistory && availableRanges.length > 1" class="mb-4 flex flex-wrap gap-1.5">
                             <button
                                 v-for="r in availableRanges"
@@ -892,8 +790,6 @@ onMounted(async () => {
                                 Revenez bientôt pour suivre l'évolution du prix de ce jeu.
                             </p>
                         </div>
-
-                        <!-- Real history stats -->
                         <div v-if="priceHistory.length > 0" class="mt-4 grid grid-cols-3 gap-3">
                             <div class="rounded-lg bg-secondary/50 p-3 text-center">
                                 <Tag class="mx-auto mb-1 size-4 text-dealytics-cyan" />
@@ -917,8 +813,6 @@ onMounted(async () => {
                                 <div class="text-[10px] text-muted-foreground">Prix actuel</div>
                             </div>
                         </div>
-
-                        <!-- At-lowest highlight -->
                         <p
                             v-if="isAtLowest"
                             class="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-medium text-dealytics-pink"
@@ -927,8 +821,6 @@ onMounted(async () => {
                             Le prix actuel est au plus bas observé depuis le début du suivi.
                         </p>
                     </div>
-
-                    <!-- Price comparison chart (real per-store prices) -->
                     <div v-if="filteredOffers.length > 1" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <BarChart3 class="size-4 text-dealytics-purple" />
@@ -951,8 +843,6 @@ onMounted(async () => {
                             </span>
                         </div>
                     </div>
-
-                    <!-- NEXARDA — All stores prices (official + keyshops) -->
                     <div v-if="nexarda.offers.length" v-reveal class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center justify-between">
                             <div class="flex items-center gap-2">
@@ -966,8 +856,6 @@ onMounted(async () => {
                                 <span class="font-medium text-dealytics-pink">NEXARDA</span>
                             </div>
                         </div>
-
-                        <!-- Platform filter -->
                         <div v-if="offerPlatforms.length > 1" class="mb-4">
                             <div class="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                                 <Monitor class="size-3.5" />
@@ -998,8 +886,6 @@ onMounted(async () => {
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Best official vs best keyshop summary -->
                         <div class="mb-4 grid grid-cols-2 gap-3">
                             <div class="rounded-lg border border-dealytics-cyan/20 bg-dealytics-cyan/5 p-3 text-center">
                                 <div class="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">Store officiel</div>
@@ -1022,8 +908,6 @@ onMounted(async () => {
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Full offer list -->
                         <div v-if="filteredOffers.length" ref="offersListEl" class="space-y-2 scroll-mt-24">
                             <a
                                 v-for="(offer, idx) in paginatedOffers"
@@ -1092,8 +976,6 @@ onMounted(async () => {
                         <div v-else class="rounded-lg bg-secondary/30 py-8 text-center text-sm text-muted-foreground">
                             Aucune offre pour cette plateforme.
                         </div>
-
-                        <!-- Offers pagination -->
                         <div
                             v-if="offersTotalPages > 1"
                             class="mt-4 flex flex-wrap items-center justify-between gap-3"
@@ -1154,15 +1036,11 @@ onMounted(async () => {
                         <p class="text-sm text-muted-foreground">Aucune offre disponible pour ce jeu actuellement.</p>
                     </div>
                 </div>
-
-                <!-- Right column: actions -->
                 <div class="min-w-0 space-y-6">
-                    <!-- Actions -->
                     <div v-reveal class="border-gradient rounded-xl p-6">
                         <h3 class="mb-4 font-heading text-base font-semibold">Actions</h3>
 
                         <div class="space-y-3">
-                            <!-- Favorite button -->
                             <Button
                                 :class="[
                                     'w-full gap-2 transition-all duration-200 active:scale-95',
@@ -1180,8 +1058,6 @@ onMounted(async () => {
                                 />
                                 {{ isFavorite ? 'Dans vos favoris' : 'Ajouter aux favoris' }}
                             </Button>
-
-                            <!-- Buy button -->
                             <Button
                                 v-if="bestOffer?.url"
                                 class="w-full gap-2 bg-dealytics-cyan text-dealytics-dark hover:bg-dealytics-cyan/90"
@@ -1198,8 +1074,6 @@ onMounted(async () => {
                             </Button>
                         </div>
                     </div>
-
-                    <!-- Price Alert -->
                     <div v-reveal="{ delay: 90 }" class="border-gradient rounded-xl p-6">
                         <div class="mb-4 flex items-center gap-2">
                             <Bell class="size-4 text-dealytics-cyan" />
@@ -1248,8 +1122,6 @@ onMounted(async () => {
                             <p v-if="alertError" class="mt-2 text-xs text-red-400">{{ alertError }}</p>
                         </div>
                     </div>
-
-                    <!-- Game Info -->
                     <div v-reveal="{ delay: 180 }" class="border-gradient rounded-xl p-6">
                         <h3 class="mb-4 font-heading text-base font-semibold">Informations</h3>
                         <dl class="space-y-3 text-sm">
@@ -1269,7 +1141,6 @@ onMounted(async () => {
                                 <dt class="text-muted-foreground">Réduction max</dt>
                                 <dd class="font-medium text-dealytics-pink">-{{ savingsPercent }}%</dd>
                             </div>
-                            <!-- Steam enriched info -->
                             <template v-if="steam">
                                 <div v-if="steam.metacritic" class="flex justify-between">
                                     <dt class="text-muted-foreground">Metacritic</dt>
@@ -1295,7 +1166,6 @@ onMounted(async () => {
                                     </dd>
                                 </div>
                             </template>
-                            <!-- Steam loading skeleton in sidebar -->
                             <template v-else-if="steamLoading">
                                 <div class="flex justify-between">
                                     <div class="h-3 w-20 animate-pulse rounded bg-secondary" />
@@ -1306,8 +1176,6 @@ onMounted(async () => {
                                     <div class="h-3 w-10 animate-pulse rounded bg-secondary" />
                                 </div>
                             </template>
-
-                            <!-- Quality/price score -->
                             <div class="flex items-center justify-between border-t border-border/50 pt-3">
                                 <dt class="text-muted-foreground">Score qualité/prix</dt>
                                 <dd class="flex items-center gap-2">
@@ -1365,8 +1233,6 @@ onMounted(async () => {
                 </div>
             </div>
         </template>
-
-        <!-- Error state -->
         <div v-else class="flex flex-col items-center justify-center py-20 text-center">
             <Star class="mb-4 size-16 text-muted-foreground/20" />
             <h3 class="font-heading text-lg font-semibold">Jeu introuvable</h3>

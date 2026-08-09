@@ -19,6 +19,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import AdminTabs from '@/components/AdminTabs.vue';
 import InputError from '@/components/InputError.vue';
+import StatCard from '@/components/StatCard.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -283,36 +284,38 @@ function formatDate(value: string | null): string {
             </div>
         </Transition>
 
-        <!-- Stats -->
         <div v-reveal="{ y: 16 }" class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-purple/20">
-                    <Users class="size-4 text-dealytics-purple" />
-                </div>
-                <div class="text-2xl font-bold text-foreground">{{ counts.total }}</div>
-                <div class="text-[10px] text-muted-foreground">Comptes au total</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
-                    <Crown class="size-4 text-dealytics-pink" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-pink">{{ counts.superadmin }}</div>
-                <div class="text-[10px] text-muted-foreground">Super admin</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-purple/20">
-                    <ShieldCheck class="size-4 text-dealytics-purple" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-purple">{{ counts.admin }}</div>
-                <div class="text-[10px] text-muted-foreground">Administrateurs</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
-                    <Shield class="size-4 text-dealytics-cyan" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-cyan">{{ counts.user }}</div>
-                <div class="text-[10px] text-muted-foreground">Utilisateurs</div>
-            </div>
+            <StatCard
+                :icon="Users"
+                label="Comptes au total"
+                :value="counts.total"
+                icon-class="text-dealytics-purple"
+                icon-bg-class="bg-dealytics-purple/20"
+            />
+            <StatCard
+                :icon="Crown"
+                label="Super admin"
+                :value="counts.superadmin"
+                icon-class="text-dealytics-pink"
+                icon-bg-class="bg-dealytics-pink/20"
+                value-class="text-dealytics-pink"
+            />
+            <StatCard
+                :icon="ShieldCheck"
+                label="Administrateurs"
+                :value="counts.admin"
+                icon-class="text-dealytics-purple"
+                icon-bg-class="bg-dealytics-purple/20"
+                value-class="text-dealytics-purple"
+            />
+            <StatCard
+                :icon="Shield"
+                label="Utilisateurs"
+                :value="counts.user"
+                icon-class="text-dealytics-cyan"
+                icon-bg-class="bg-dealytics-cyan/20"
+                value-class="text-dealytics-cyan"
+            />
         </div>
 
         <!-- Filters -->

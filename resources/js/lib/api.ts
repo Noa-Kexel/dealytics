@@ -1,7 +1,4 @@
-/**
- * Lightweight API helper for authenticated AJAX calls.
- * Uses the XSRF-TOKEN cookie set by Laravel for CSRF protection.
- */
+/** Helper fetch authentifié (cookie XSRF Laravel). */
 
 function getCsrfToken(): string {
     const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);

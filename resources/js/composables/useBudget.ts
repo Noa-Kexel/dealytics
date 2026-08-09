@@ -37,8 +37,6 @@ function isAuthenticated(): boolean {
     }
 }
 
-// ── localStorage fallback ───────────────────────────────────
-
 function loadFromStorage(): MonthlyBudget {
     try {
         const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -56,7 +54,7 @@ function saveToStorage(budget: MonthlyBudget) {
         data[currentMonthKey()] = budget;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch {
-        // silently fail
+        // ignore
     }
 }
 
@@ -68,11 +66,8 @@ function loadAllMonthsFromStorage(): Record<string, MonthlyBudget> {
     }
 }
 
-// ── Normalize purchase ──────────────────────────────────────
-
+/** Cast Laravel `decimal:2` → number (sinon concaténation au lieu d'addition). */
 function normalizePurchase(p: Purchase): Purchase {
-    // Laravel's `decimal:2` cast serializes prices as strings ("12.49"), so coerce
-    // to numbers here — otherwise `sum + p.price` concatenates instead of adding.
     const price = Number(p.price);
     const originalPrice = Number(p.original_price ?? p.originalPrice ?? p.price);
 
@@ -88,8 +83,6 @@ function normalizePurchase(p: Purchase): Purchase {
     };
 }
 
-// ── Public API ──────────────────────────────────────────────
-
 export function useBudget() {
     const budget = ref<MonthlyBudget>(loadFromStorage());
     const loaded = ref(false);
@@ -103,7 +96,6 @@ export function useBudget() {
         }
 
         try {
-            // Load budget limit + purchases in parallel
             const [budgetData, purchasesData] = await Promise.all([
                 api<{ monthly_limit: number }>('/api/budget'),
                 api<Purchase[]>('/api/purchases'),
@@ -164,7 +156,7 @@ export function useBudget() {
                     body: { monthly_limit: limit },
                 });
             } catch {
-                // keep local value
+                // garde la valeur locale
             }
         } else {
             saveToStorage(budget.value);
@@ -203,14 +195,14 @@ export function useBudget() {
                     },
                 });
 
-                // Replace temp ID with real DB ID
+                // Remplace l'id temporaire par celui de la DB.
                 const idx = budget.value.purchases.findIndex((p) => p.id === tempId);
 
                 if (idx >= 0) {
                     budget.value.purchases[idx] = normalizePurchase(created);
                 }
             } catch {
-                // keep optimistic state
+                // garde l'état optimiste
             }
         } else {
             saveToStorage(budget.value);
@@ -224,7 +216,7 @@ export function useBudget() {
             try {
                 await api(`/api/purchases/${id}`, { method: 'DELETE' });
             } catch {
-                // already removed locally
+                // déjà retiré localement
             }
         } else {
             saveToStorage(budget.value);
@@ -233,7 +225,6 @@ export function useBudget() {
 
     function getSpendingHistory(): { month: string; spent: number }[] {
         if (isAuthenticated()) {
-            // Will be fetched async — return empty initially
             return [];
         }
 
