@@ -53,11 +53,11 @@ async function toggleFavorite(e: Event) {
 
 <template>
     <div
-        class="group border-gradient cursor-pointer overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] hover:border-gradient-strong"
+        class="group flex h-full flex-col border-gradient cursor-pointer overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] hover:border-gradient-strong"
         @click="openGame"
     >
         <!-- Image — Nexarda covers are portrait (~3:4); match that ratio to avoid cropping titles -->
-        <div class="relative aspect-[3/4] overflow-hidden bg-secondary">
+        <div class="relative aspect-[3/4] shrink-0 overflow-hidden bg-secondary">
             <GameImage
                 :src="thumb"
                 :alt="game.title"
@@ -84,7 +84,7 @@ async function toggleFavorite(e: Event) {
         </div>
 
         <!-- Content -->
-        <div class="p-3">
+        <div class="flex flex-1 flex-col p-3">
             <h3 class="truncate text-sm font-semibold text-foreground">
                 {{ game.title }}
             </h3>
@@ -99,8 +99,8 @@ async function toggleFavorite(e: Event) {
                 </span>
             </div>
 
-            <div class="mt-2 flex items-end justify-between gap-3">
-                <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <div class="mt-auto flex items-end justify-between gap-3 pt-2">
+                <div class="flex min-w-0 items-baseline gap-2">
                     <span class="text-lg font-bold text-dealytics-cyan">
                         <template v-if="game.price === null">N/A</template>
                         <template v-else-if="game.price === 0">Gratuit</template>
@@ -108,7 +108,7 @@ async function toggleFavorite(e: Event) {
                     </span>
                     <span
                         v-if="discount > 0 && game.normalPrice"
-                        class="text-xs text-muted-foreground line-through"
+                        class="truncate text-xs text-muted-foreground line-through"
                     >
                         {{ game.normalPrice.toFixed(2) }}€
                     </span>
