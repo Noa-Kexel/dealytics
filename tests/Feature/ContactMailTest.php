@@ -30,7 +30,7 @@ class ContactMailTest extends TestCase
         $html = (string) $mail->render();
 
         $this->assertSame(
-            config('app.name').' — Nouveau message : Un prix me semble incorrect',
+            config('app.name').' : Nouveau message « Un prix me semble incorrect »',
             $mail->envelope()->subject,
         );
         $this->assertStringContainsString('Camille Dubois', $html);
@@ -50,7 +50,7 @@ class ContactMailTest extends TestCase
         $html = (string) $mail->render();
 
         $this->assertSame(
-            config('app.name').' — Nous avons bien reçu votre message',
+            config('app.name').' : Nous avons bien reçu votre message',
             $mail->envelope()->subject,
         );
         $this->assertStringContainsString('Camille Dubois', $html);

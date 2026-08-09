@@ -8,17 +8,16 @@ export interface FavoriteGame {
     title: string;
     thumb: string;
     created_at?: string;
-    // Client-side enrichment (from CheapShark API)
+    /** Enrichissement côté client (prix Nexarda). */
     currentPrice?: number;
     normalPrice?: number;
     savings?: number;
-    dealRating?: number;
     loading?: boolean;
 }
 
 const STORAGE_KEY = 'dealytics_favorites';
 
-// Shared reactive state (singleton across all component instances)
+// État partagé entre toutes les instances du composable.
 const favorites = ref<FavoriteGame[]>([]);
 const loaded = ref(false);
 
@@ -31,8 +30,6 @@ function isAuthenticated(): boolean {
         return false;
     }
 }
-
-// ── localStorage fallback (guests) ──────────────────────────
 
 function loadFromStorage(): FavoriteGame[] {
     try {
@@ -60,8 +57,6 @@ function saveToStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-// ── Public API ──────────────────────────────────────────────
-
 export function useFavorites() {
     async function loadFavorites(): Promise<void> {
         if (isAuthenticated()) {
@@ -69,7 +64,6 @@ export function useFavorites() {
                 const data = await api<FavoriteGame[]>('/api/favorites');
                 favorites.value = data;
             } catch {
-                // Fallback to localStorage on error
                 favorites.value = loadFromStorage();
             }
         } else {
@@ -86,7 +80,6 @@ export function useFavorites() {
     const favoriteIds = computed(() => new Set(favorites.value.map((f) => f.game_id)));
 
     async function addFavorite(gameId: string, title: string, thumb: string): Promise<void> {
-        // Optimistic update
         if (!isFavorite(gameId)) {
             favorites.value.push({
                 game_id: gameId,
@@ -103,7 +96,6 @@ export function useFavorites() {
                     body: { game_id: gameId, title, thumb },
                 });
             } catch {
-                // Revert optimistic update on error
                 favorites.value = favorites.value.filter((f) => f.game_id !== gameId);
             }
         } else {
@@ -119,7 +111,6 @@ export function useFavorites() {
             try {
                 await api(`/api/favorites/${gameId}`, { method: 'DELETE' });
             } catch {
-                // Revert on error
                 favorites.value = backup;
             }
         } else {
@@ -132,11 +123,11 @@ export function useFavorites() {
             await removeFavorite(gameId);
 
             return false;
-        } else {
-            await addFavorite(gameId, title, thumb);
-
-            return true;
         }
+
+        await addFavorite(gameId, title, thumb);
+
+        return true;
     }
 
     return {

@@ -109,7 +109,7 @@ function goBack() {
 </script>
 
 <template>
-    <Head :title="`${status} — ${copy.title}`" />
+    <Head :title="`${status} : ${copy.title}`" />
 
     <div
         class="animate-page-in mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-4 py-16 text-center lg:px-6"

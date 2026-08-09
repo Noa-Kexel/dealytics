@@ -13,7 +13,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $code }} — {{ $title }} | {{ config('app.name') }}</title>
+    <title>{{ $code }} : {{ $title }} | {{ config('app.name') }}</title>
     <style>
         *{ box-sizing: border-box; }
         body {
@@ -71,7 +71,7 @@
             <a href="{{ url('/') }}" class="btn">Retour à l'accueil</a>
         @endif
 
-        <p class="note">{{ config('app.name') }} — Suivi de prix des jeux vidéo</p>
+        <p class="note">{{ config('app.name') }}, suivi de prix des jeux vidéo</p>
     </div>
 </body>
 </html>

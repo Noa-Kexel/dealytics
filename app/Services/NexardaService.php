@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Price;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -19,13 +20,10 @@ class NexardaService
     }
 
     /**
-     * Search games (or fetch the popularity-ordered feed) for the home page.
+     * Recherche / feed popularité pour l'accueil.
      *
-     * Nexarda has no dedicated "popular games" endpoint, and its /search
-     * endpoint ignores `sort` and `per_page` (always 50 results, ordered by
-     * popularity). So an empty query falls back to a broad term that matches
-     * most titles, which surfaces the trending games. Sorting and filtering
-     * are done client-side on the returned page.
+     * Sans endpoint « popular » dédié, une requête vide bascule sur un terme
+     * large ; tri et filtres se font côté client.
      */
     public function searchGames(string $query = '', int $page = 1): array
     {
@@ -75,18 +73,14 @@ class NexardaService
 
         $lowest = (float) ($info['lowest_price'] ?? 0);
         $discount = (int) ($info['highest_discount'] ?? 0);
-
-        // Nexarda only gives the discounted price; derive the original.
-        $normal = $discount > 0 && $discount < 100
-            ? round($lowest / (1 - $discount / 100), 2)
-            : $lowest;
+        $normal = Price::deriveNormalPrice($lowest, $discount);
 
         return [
             'id' => (string) $info['id'],
             'title' => $info['name'] ?? ($item['title'] ?? 'Unknown'),
             'image' => $item['image'] ?? null,
             'price' => $lowest > 0 ? $lowest : null,
-            'normalPrice' => $normal > 0 ? $normal : null,
+            'normalPrice' => $normal,
             'discount' => $discount,
             'upcoming' => (bool) ($info['upcoming'] ?? false),
             'platforms' => collect($info['platforms'] ?? [])

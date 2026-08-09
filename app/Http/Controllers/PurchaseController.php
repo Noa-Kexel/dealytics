@@ -45,10 +45,12 @@ class PurchaseController extends Controller
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        $request->user()
+        $purchase = $request->user()
             ->purchases()
             ->where('id', $id)
-            ->delete();
+            ->firstOrFail();
+
+        $purchase->delete();
 
         return response()->json(['message' => 'Achat supprimé']);
     }

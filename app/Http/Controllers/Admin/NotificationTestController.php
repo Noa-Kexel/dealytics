@@ -14,18 +14,16 @@ use Inertia\Response;
 
 class NotificationTestController extends Controller
 {
-    /**
-     * Sample deal used both for the on-screen preview and the test send.
-     */
+    /** Deal d'exemple pour l'aperçu et l'envoi de test. */
     private const SAMPLE = [
-        'game_id' => '96', // Cyberpunk 2077 — a real game id so the link works
+        'game_id' => '96', // Cyberpunk 2077 — id réel pour que le lien marche
         'title' => 'Cyberpunk 2077',
         'current_price' => 29.99,
         'target_price' => 35.00,
     ];
 
     /**
-     * E-mail templates that can be previewed from the admin panel.
+     * Templates e-mail prévisualisables depuis l'admin.
      *
      * @var array<string, string>
      */
@@ -33,13 +31,11 @@ class NotificationTestController extends Controller
         'price-alert' => 'Alerte de prix atteinte',
         'verify-email' => 'Vérification de l\'adresse e-mail',
         'reset-password' => 'Réinitialisation du mot de passe',
-        'contact-received' => 'Contact — copie pour l\'équipe',
-        'contact-confirmation' => 'Contact — accusé de réception',
+        'contact-received' => 'Contact (copie pour l\'équipe)',
+        'contact-confirmation' => 'Contact (accusé de réception)',
     ];
 
-    /**
-     * Message d'exemple utilisé pour l'aperçu des deux e-mails de contact.
-     */
+    /** Message d'exemple pour les e-mails de contact. */
     private const SAMPLE_CONTACT = [
         'name' => 'Camille Dubois',
         'email' => 'camille.dubois@exemple.com',
@@ -62,19 +58,15 @@ class NotificationTestController extends Controller
                     'label' => $label,
                 ])
                 ->values(),
-            // Rappel utile : avec le driver « log », l'e-mail atterrit dans storage/logs.
+            // Avec le driver « log », l'e-mail atterrit dans storage/logs.
             'mailer' => config('mail.default'),
         ]);
     }
 
-    /**
-     * Fire a real in-app price-alert notification at the current admin, so they
-     * can see exactly what a triggered alert looks like (bell + toast).
-     */
+    /** Notification in-app de test (cloche + toast), sans e-mail. */
     public function send(Request $request): RedirectResponse
     {
-        // notifyNow (not notify) sends synchronously despite ShouldQueue, and we
-        // restrict to the database channel so no e-mail is sent for a test.
+        // notifyNow + canal database uniquement : sync, pas d'e-mail.
         $request->user()->notifyNow(
             new PriceAlertReached($this->sampleAlert(), self::SAMPLE['current_price']),
             ['database'],
@@ -83,10 +75,7 @@ class NotificationTestController extends Controller
         return back()->with('success', 'Notification de test envoyée.');
     }
 
-    /**
-     * Send the price-alert e-mail (and only the e-mail) to the current admin,
-     * to check the rendering in a real mail client.
-     */
+    /** Envoie uniquement l'e-mail d'alerte de prix à l'admin courant. */
     public function sendEmail(Request $request): RedirectResponse
     {
         $request->user()->notifyNow(
@@ -97,10 +86,7 @@ class NotificationTestController extends Controller
         return back()->with('success', 'E-mail de test envoyé à '.$request->user()->email.'.');
     }
 
-    /**
-     * Render a mail template on its own, with sample data, so it can be shown
-     * in an iframe inside the admin panel.
-     */
+    /** Aperçu d'un template mail (iframe admin). */
     public function preview(Request $request, string $template): View
     {
         abort_unless(array_key_exists($template, self::TEMPLATES), 404);

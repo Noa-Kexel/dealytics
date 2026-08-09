@@ -15,9 +15,7 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    /**
-     * List every user with light activity counts.
-     */
+    /** Liste des utilisateurs avec compteurs d'activité. */
     public function index(Request $request): Response
     {
         $users = User::query()
@@ -47,9 +45,7 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Create a new user account.
-     */
+    /** Crée un compte utilisateur. */
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
@@ -60,17 +56,15 @@ class UserController extends Controller
         $user = new User;
         $user->name = $data['name'];
         $user->email = $data['email'];
-        $user->password = $data['password']; // hashed by the model cast
-        $user->email_verified_at = now();    // admin-created accounts are trusted
+        $user->password = $data['password']; // hashé via le cast du modèle
+        $user->email_verified_at = now(); // comptes créés par un admin = déjà vérifiés
         $user->role = $role;
         $user->save();
 
         return back()->with('success', "Utilisateur « {$user->name} » créé.");
     }
 
-    /**
-     * Update an existing user (details, role and optional new password).
-     */
+    /** Met à jour un utilisateur (infos, rôle, mot de passe optionnel). */
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $this->authorizeManage($request->user(), $user);
@@ -80,7 +74,7 @@ class UserController extends Controller
 
         $this->authorizeRoleAssignment($request->user(), $newRole);
 
-        // Never let the last super admin be demoted.
+        // Empêche de rétrograder le dernier super admin.
         if ($user->isSuperAdmin() && $newRole !== UserRole::SuperAdmin) {
             $this->ensureNotLastSuperAdmin();
         }
@@ -90,7 +84,7 @@ class UserController extends Controller
         $user->role = $newRole;
 
         if (! empty($data['password'])) {
-            $user->password = $data['password']; // hashed by the model cast
+            $user->password = $data['password']; // hashé via le cast du modèle
         }
 
         $user->save();
@@ -98,9 +92,7 @@ class UserController extends Controller
         return back()->with('success', "Utilisateur « {$user->name} » mis à jour.");
     }
 
-    /**
-     * Delete a user account.
-     */
+    /** Supprime un compte utilisateur. */
     public function destroy(Request $request, User $user): RedirectResponse
     {
         $this->authorizeManage($request->user(), $user);
@@ -119,8 +111,7 @@ class UserController extends Controller
     }
 
     /**
-     * Roles the actor is allowed to assign. Super admins may assign any role;
-     * plain admins may only create/keep regular users.
+     * Rôles que l'acteur peut attribuer.
      *
      * @return list<string>
      */
@@ -133,9 +124,7 @@ class UserController extends Controller
         return [UserRole::User->value];
     }
 
-    /**
-     * A plain admin may only manage regular users; a super admin manages all.
-     */
+    /** Un admin simple ne gère que les users ; un super admin gère tout. */
     private function authorizeManage(User $actor, User $target): void
     {
         if ($actor->isSuperAdmin()) {

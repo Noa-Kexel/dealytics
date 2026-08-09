@@ -28,6 +28,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed, onMounted } from 'vue';
 import { Bar } from 'vue-chartjs';
+import StatCard from '@/components/StatCard.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +45,7 @@ import { useBudget  } from '@/composables/useBudget';
 import type {Purchase} from '@/composables/useBudget';
 import { useFavorites } from '@/composables/useFavorites';
 import { vReveal } from '@/directives/reveal';
+import type { GameItem } from '@/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
@@ -66,14 +68,12 @@ const {
 
 const { favorites: favoritesData, loadFavorites } = useFavorites();
 const favorites = computed(() => favoritesData.value);
-const topDeals = ref<{ id: string; title: string; image: string | null; price: number | null; normalPrice: number | null; discount: number }[]>([]);
+const topDeals = ref<GameItem[]>([]);
 const loadingDeals = ref(true);
 
-// Budget editing
 const editingBudget = ref(false);
 const newBudgetLimit = ref('');
 
-// Add purchase form
 const newPurchaseTitle = ref('');
 const newPurchasePrice = ref('');
 const newPurchaseOriginal = ref('');
@@ -92,7 +92,6 @@ const purchaseOverflowAmount = computed(() =>
     getBudgetOverflowWith(newPurchasePriceNum.value),
 );
 
-// Spending chart
 const spendingChartData = ref({
     labels: [] as string[],
     datasets: [
@@ -203,26 +202,21 @@ async function refreshChart() {
 }
 
 onMounted(async () => {
-    // Load all data from DB (or localStorage for guests)
     await Promise.all([
         loadFavorites(),
         loadAlerts(),
         loadBudget(),
     ]);
 
-    // Check alerts against current prices
     checkAlerts();
-
-    // Load spending chart
     refreshChart();
 
-    // Load top deals (Nexarda popularity feed, biggest discounts first)
     try {
         const response = await fetch('/api/games');
         const data = await response.json();
         topDeals.value = (data.games ?? [])
-            .filter((g: { price: number | null; discount: number }) => g.price !== null && g.discount > 0)
-            .sort((a: { discount: number }, b: { discount: number }) => b.discount - a.discount)
+            .filter((g: GameItem) => g.price !== null && g.discount > 0)
+            .sort((a: GameItem, b: GameItem) => b.discount - a.discount)
             .slice(0, 5);
     } catch {
         // ignore
@@ -236,7 +230,6 @@ onMounted(async () => {
     <Head title="Dashboard" />
 
     <div class="animate-page-in mx-auto max-w-7xl px-4 py-6 lg:px-6">
-        <!-- Header -->
         <div class="mb-8 flex items-center gap-3">
             <div class="flex size-10 items-center justify-center rounded-xl bg-dealytics-purple/20">
                 <Trophy class="size-5 text-dealytics-purple" />
@@ -246,48 +239,44 @@ onMounted(async () => {
                 <p class="text-sm text-muted-foreground">Votre centre de commande gaming</p>
             </div>
         </div>
-
-        <!-- Stats Cards -->
         <div v-reveal="{ y: 16 }" class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-purple/20">
-                    <Star class="size-4 text-dealytics-purple" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-purple">{{ favorites.length }}</div>
-                <div class="text-xs text-muted-foreground">Jeux suivis</div>
-                <div class="text-[10px] text-muted-foreground/70">dans la watchlist</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
-                    <Bell class="size-4 text-dealytics-cyan" />
-                </div>
-                <div class="text-2xl font-bold text-foreground">{{ getActiveAlerts().length }}</div>
-                <div class="text-xs text-muted-foreground">Alertes actives</div>
-                <div class="text-[10px] text-muted-foreground/70">surveillance prix</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-cyan/20">
-                    <TrendingDown class="size-4 text-dealytics-cyan" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-cyan">
-                    {{ budget.purchases.length > 0 ? Math.round((totalSaved / (totalSpent + totalSaved)) * 100) + '%' : '--' }}
-                </div>
-                <div class="text-xs text-muted-foreground">Réduction moy.</div>
-                <div class="text-[10px] text-muted-foreground/70">sur vos achats</div>
-            </div>
-            <div class="border-gradient rounded-xl p-4">
-                <div class="mb-2 flex size-8 items-center justify-center rounded-lg bg-dealytics-pink/20">
-                    <Euro class="size-4 text-dealytics-pink" />
-                </div>
-                <div class="text-2xl font-bold text-dealytics-pink">{{ totalSaved.toFixed(2) }}€</div>
-                <div class="text-xs text-muted-foreground">Economisé</div>
-                <div class="text-[10px] text-muted-foreground/70">ce mois-ci</div>
-            </div>
+            <StatCard
+                :icon="Star"
+                label="Jeux suivis"
+                :value="favorites.length"
+                hint="dans la watchlist"
+                icon-class="text-dealytics-purple"
+                icon-bg-class="bg-dealytics-purple/20"
+                value-class="text-dealytics-purple"
+            />
+            <StatCard
+                :icon="Bell"
+                label="Alertes actives"
+                :value="getActiveAlerts().length"
+                hint="surveillance prix"
+                icon-class="text-dealytics-cyan"
+                icon-bg-class="bg-dealytics-cyan/20"
+            />
+            <StatCard
+                :icon="TrendingDown"
+                label="Réduction moy."
+                :value="budget.purchases.length > 0 ? Math.round((totalSaved / (totalSpent + totalSaved)) * 100) + '%' : '--'"
+                hint="sur vos achats"
+                icon-class="text-dealytics-cyan"
+                icon-bg-class="bg-dealytics-cyan/20"
+                value-class="text-dealytics-cyan"
+            />
+            <StatCard
+                :icon="Euro"
+                label="Economisé"
+                :value="`${totalSaved.toFixed(2)}€`"
+                hint="ce mois-ci"
+                icon-class="text-dealytics-pink"
+                icon-bg-class="bg-dealytics-pink/20"
+                value-class="text-dealytics-pink"
+            />
         </div>
-
-        <!-- Budget + Spending Chart -->
         <div v-reveal class="mb-6 grid gap-4 lg:grid-cols-2">
-            <!-- Monthly Budget -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center justify-between">
                     <div class="flex items-center gap-2">
@@ -298,8 +287,6 @@ onMounted(async () => {
                         {{ new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) }}
                     </span>
                 </div>
-
-                <!-- Budget amount -->
                 <div class="mb-2 flex items-baseline gap-2">
                     <span class="text-3xl font-bold" :class="isOverBudget ? 'text-red-400' : 'text-dealytics-cyan'">
                         {{ totalSpent.toFixed(2) }}€
@@ -314,8 +301,6 @@ onMounted(async () => {
                         </button>
                     </span>
                 </div>
-
-                <!-- Edit budget inline -->
                 <div v-if="editingBudget" class="mb-3 flex gap-2">
                     <Input
                         v-model="newBudgetLimit"
@@ -329,8 +314,6 @@ onMounted(async () => {
                         <Check class="size-3.5" />
                     </Button>
                 </div>
-
-                <!-- Progress bar -->
                 <div class="mb-2 h-2 overflow-hidden rounded-full bg-secondary">
                     <div
                         class="h-full rounded-full transition-all duration-500"
@@ -343,8 +326,6 @@ onMounted(async () => {
                     <span v-if="isOverBudget" class="text-red-400">Budget dépassé de {{ (totalSpent - budget.limit).toFixed(2) }}€</span>
                     <span v-else>{{ 100 - budgetPercent }}% restant · {{ remaining.toFixed(2) }}€ disponible</span>
                 </p>
-
-                <!-- Mini stats -->
                 <div class="mb-4 grid grid-cols-3 gap-3">
                     <div class="rounded-lg bg-secondary/50 p-2 text-center">
                         <div class="text-sm font-semibold text-foreground">{{ budget.purchases.length }}</div>
@@ -361,8 +342,6 @@ onMounted(async () => {
                         <div class="text-[10px] text-muted-foreground">Restant</div>
                     </div>
                 </div>
-
-                <!-- Add purchase -->
                 <Dialog>
                     <DialogTrigger as-child>
                         <Button variant="outline" size="sm" class="w-full gap-2 text-xs">
@@ -385,7 +364,7 @@ onMounted(async () => {
                                 <AlertDescription>
                                     Avec cet achat, vous atteindrez {{ projectedMonthlyTotal.toFixed(2) }}€ ce mois-ci,
                                     soit {{ purchaseOverflowAmount.toFixed(2) }}€ au-dessus de votre budget de {{ budget.limit }}€.
-                                    Vous vous êtes fixé une limite — ce n'est pas une bonne idée de la dépasser !
+                                    Vous vous êtes fixé une limite, ce n'est pas une bonne idée de la dépasser !
                                 </AlertDescription>
                             </Alert>
                             <Input v-model="newPurchaseTitle" placeholder="Nom du jeu" class="text-sm" />
@@ -429,8 +408,6 @@ onMounted(async () => {
                         </button>
                     </AlertDescription>
                 </Alert>
-
-                <!-- Purchase list -->
                 <div v-if="budget.purchases.length > 0" class="mt-4 space-y-2">
                     <div
                         v-for="purchase in budget.purchases"
@@ -460,8 +437,6 @@ onMounted(async () => {
                     </div>
                 </div>
             </div>
-
-            <!-- Spending History Chart -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <TrendingDown class="size-4 text-dealytics-cyan" />
@@ -472,17 +447,12 @@ onMounted(async () => {
                 </div>
             </div>
         </div>
-
-        <!-- Alerts + Top Deals -->
         <div v-reveal class="grid gap-4 lg:grid-cols-2">
-            <!-- Active Alerts -->
             <div id="price-alerts" class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <Bell class="size-4 text-dealytics-cyan" />
                     <h2 class="font-heading text-lg font-semibold">Alertes de prix</h2>
                 </div>
-
-                <!-- Reached alerts -->
                 <div v-if="getReachedAlerts().length > 0" class="mb-4 space-y-2">
                     <p class="text-[10px] font-medium uppercase tracking-wider text-dealytics-pink">Objectif atteint</p>
                     <div
@@ -506,8 +476,6 @@ onMounted(async () => {
                         </div>
                     </div>
                 </div>
-
-                <!-- Active alerts -->
                 <div v-if="getActiveAlerts().length > 0" class="space-y-2">
                     <p class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">En surveillance</p>
                     <div
@@ -539,8 +507,6 @@ onMounted(async () => {
                     Aucune alerte. Ajoutez-en depuis une page de jeu.
                 </p>
             </div>
-
-            <!-- Top Deals -->
             <div class="border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <Target class="size-4 text-dealytics-pink" />

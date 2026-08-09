@@ -10,8 +10,7 @@ class SteamWishlistService
     public function __construct(private NexardaService $nexarda) {}
 
     /**
-     * Resolve any Steam profile reference (steamid64, profile URL, vanity URL,
-     * or bare vanity name) to a numeric steamid64. No API key required.
+     * Résout un profil Steam (steamid64, URL, vanity) en steamid64.
      */
     public function resolveSteamId(string $input): ?string
     {
@@ -21,17 +20,15 @@ class SteamWishlistService
             return null;
         }
 
-        // Already a steamid64.
         if (preg_match('/^\d{17}$/', $input)) {
             return $input;
         }
 
-        // .../profiles/7656...
         if (preg_match('#/profiles/(\d{17})#', $input, $m)) {
             return $m[1];
         }
 
-        // .../id/<vanity> or a bare vanity name.
+        // URL /id/<vanity> ou nom vanity seul.
         $vanity = $input;
 
         if (preg_match('~/id/([^/?\#]+)~', $input, $m)) {
@@ -64,7 +61,7 @@ class SteamWishlistService
     }
 
     /**
-     * Fetch a user's public wishlist, enriched with current Steam price.
+     * Wishlist publique enrichie avec le prix Steam courant.
      *
      * @return array{available: bool, items: array<int, array<string, mixed>>}
      */
@@ -108,7 +105,7 @@ class SteamWishlistService
                 return null;
             }
 
-            // Lowest priority value = highest on the wishlist.
+            // Priorité la plus basse = plus haut dans la wishlist.
             return collect($items)
                 ->sortBy('priority')
                 ->pluck('appid')
@@ -120,7 +117,7 @@ class SteamWishlistService
     }
 
     /**
-     * Best multi-store price for a title via Nexarda's search feed.
+     * Meilleur prix multi-boutiques via Nexarda.
      *
      * @return array{id: string, price: float|null, normalPrice: float|null, discount: int}|null
      */
@@ -166,7 +163,7 @@ class SteamWishlistService
                 $price = $data['price_overview'] ?? null;
                 $steamPrice = $price ? round($price['final'] / 100, 2) : null;
 
-                // Cross-reference Nexarda for the best multi-store price.
+                // Croisement Nexarda pour le meilleur prix multi-boutiques.
                 $nexarda = $this->bestNexardaPrice($title);
 
                 $useNexarda = $nexarda && $nexarda['price'] !== null

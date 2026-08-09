@@ -6,7 +6,7 @@
 
 @section('title', 'Nouveau message de contact : '.$subjectLine)
 
-@section('preheader', $senderName.' vous a écrit — '.$subjectLine)
+@section('preheader', $senderName.' vous a écrit : '.$subjectLine)
 
 @section('content')
     {{-- Étiquette --}}

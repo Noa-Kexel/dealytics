@@ -29,7 +29,7 @@ class PriceAlertReached extends Notification implements ShouldQueue
     {
         return (new MailMessage)
             ->subject(sprintf(
-                '%s — Prix cible atteint : %s à %s €',
+                '%s : Prix cible atteint pour « %s » (%s €)',
                 config('app.name'),
                 $this->alert->title,
                 number_format($this->currentPrice, 2, ',', ' '),

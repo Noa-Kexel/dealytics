@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Bell, CheckCheck, ExternalLink } from 'lucide-vue-next';
+import { Bell, CheckCheck, ExternalLink, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +18,7 @@ const {
     loadNotifications,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
 } = useNotifications();
 
 const hasUnread = computed(() => unreadCount.value > 0);
@@ -95,12 +96,16 @@ onMounted(() => {
             </div>
 
             <div v-else class="max-h-80 overflow-y-auto">
-                <template v-for="notification in notifications" :key="notification.id">
+                <div
+                    v-for="notification in notifications"
+                    :key="notification.id"
+                    class="group/notif flex items-start border-b border-border/30 transition-colors last:border-0 hover:bg-secondary/40"
+                    :class="!notification.read_at ? 'bg-dealytics-purple/5' : ''"
+                >
                     <Link
                         v-if="notification.game_id"
                         :href="`/game/${notification.game_id}`"
-                        class="flex w-full items-start gap-3 border-b border-border/30 px-4 py-3 text-left transition-colors last:border-0 hover:bg-secondary/40"
-                        :class="!notification.read_at ? 'bg-dealytics-purple/5' : ''"
+                        class="flex min-w-0 flex-1 items-start gap-3 py-3 pr-1 pl-4 text-left"
                         @click="handleOpenNotification(notification.id)"
                     >
                         <div class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-dealytics-cyan/15 text-dealytics-cyan">
@@ -119,8 +124,7 @@ onMounted(() => {
                     <button
                         v-else
                         type="button"
-                        class="flex w-full items-start gap-3 border-b border-border/30 px-4 py-3 text-left transition-colors last:border-0 hover:bg-secondary/40"
-                        :class="!notification.read_at ? 'bg-dealytics-purple/5' : ''"
+                        class="flex min-w-0 flex-1 items-start gap-3 py-3 pr-1 pl-4 text-left"
                         @click="handleOpenNotification(notification.id)"
                     >
                         <div class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-dealytics-cyan/15 text-dealytics-cyan">
@@ -135,7 +139,17 @@ onMounted(() => {
                             </p>
                         </div>
                     </button>
-                </template>
+
+                    <button
+                        type="button"
+                        class="mt-3 mr-2 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-dealytics-pink/10 hover:text-dealytics-pink group-hover/notif:text-muted-foreground/70"
+                        aria-label="Supprimer la notification"
+                        title="Supprimer"
+                        @click.stop.prevent="deleteNotification(notification.id)"
+                    >
+                        <Trash2 class="size-3.5" />
+                    </button>
+                </div>
             </div>
         </DropdownMenuContent>
     </DropdownMenu>

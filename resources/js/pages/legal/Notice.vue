@@ -126,7 +126,7 @@ const { sections, section } = defineLegalSections([
                     v-for="source in props.legal.dataSources"
                     :key="source.name"
                 >
-                    <strong>{{ source.name }}</strong> — {{ source.usage }} (<a
+                    <strong>{{ source.name }}</strong> : {{ source.usage }} (<a
                         :href="source.url"
                         target="_blank"
                         rel="noopener noreferrer"
