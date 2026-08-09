@@ -28,6 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { takeCompleteRows, useDealGridColumns, DEAL_GRID_CLASS } from '@/composables/useDealGridColumns';
 import { useFavorites } from '@/composables/useFavorites';
 import { syncHomeListUrl, parseHomeListQuery } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
@@ -154,9 +155,28 @@ function filterAndSort(source: GameItem[]): GameItem[] {
     return sorted;
 }
 
-const displayedGames = computed(() => filterAndSort(games.value));
+const { columns: gridColumns } = useDealGridColumns();
+
+const filteredGames = computed(() => filterAndSort(games.value));
 
 const hasMore = computed(() => currentPage.value < totalPages.value);
+
+// Affiche seulement des lignes pleines tant qu'il reste des pages à charger.
+const displayedGames = computed(() =>
+    takeCompleteRows(filteredGames.value, gridColumns.value, !hasMore.value),
+);
+
+const skeletonCount = computed(() => gridColumns.value * 2);
+const loadMoreSkeletonCount = computed(() => gridColumns.value);
+
+const needsRowFill = computed(
+    () =>
+        hasMore.value &&
+        !loading.value &&
+        !loadingMore.value &&
+        filteredGames.value.length > 0 &&
+        displayedGames.value.length === 0,
+);
 
 const stats = ref({ trackedGames: 0, hotDeals: 0, totalSavings: 0 });
 
@@ -227,6 +247,13 @@ async function loadMore() {
         loadingMore.value = false;
     }
 }
+
+// Charge la page suivante si les filtres ne remplissent pas une ligne.
+watch(needsRowFill, (needsFill) => {
+    if (needsFill) {
+        loadMore();
+    }
+});
 
 // Autocomplete : suggestions en live, grille seulement au Enter.
 const showSuggestions = ref(false);
@@ -554,14 +581,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         </div>
         <div
             v-if="loading"
-            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5"
+            :class="DEAL_GRID_CLASS"
         >
-            <GameCardSkeleton v-for="i in 10" :key="i" />
+            <GameCardSkeleton v-for="i in skeletonCount" :key="i" />
         </div>
 
         <div
             v-else-if="displayedGames.length > 0"
-            class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5"
+            :class="DEAL_GRID_CLASS"
         >
             <GameCard
                 v-for="(game, index) in displayedGames"
@@ -570,6 +597,12 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 class="animate-card-in"
                 :style="{ animationDelay: `${Math.min(index, 11) * 50}ms` }"
             />
+        </div>
+        <div
+            v-else-if="needsRowFill || loadingMore"
+            :class="DEAL_GRID_CLASS"
+        >
+            <GameCardSkeleton v-for="i in skeletonCount" :key="'fill-' + i" />
         </div>
         <div
             v-else-if="loadError"
@@ -609,14 +642,15 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
             </Button>
         </div>
         <div
-            v-if="loadingMore"
-            class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-5"
+            v-if="loadingMore && displayedGames.length > 0"
+            class="mt-4"
+            :class="DEAL_GRID_CLASS"
         >
-            <GameCardSkeleton v-for="i in 5" :key="'more-' + i" />
+            <GameCardSkeleton v-for="i in loadMoreSkeletonCount" :key="'more-' + i" />
         </div>
 
         <div
-            v-else-if="hasSearched && !loading && !loadError && displayedGames.length === 0"
+            v-else-if="hasSearched && !loading && !loadError && !needsRowFill && !loadingMore && filteredGames.length === 0"
             class="flex flex-col items-center justify-center py-20 text-center"
         >
             <Gamepad2 class="mb-4 size-16 text-muted-foreground/30" />
