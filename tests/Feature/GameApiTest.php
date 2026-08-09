@@ -186,6 +186,51 @@ class GameApiTest extends TestCase
             ->assertJsonPath('metacritic', 93);
     }
 
+    public function test_steam_hero_prefers_background_raw_over_tiny_header(): void
+    {
+        Cache::flush();
+
+        $appId = 4231820;
+        $header = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/header.jpg";
+        $bgRaw = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/page_bg_raw.jpg";
+        $libraryHero = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$appId}/library_hero.jpg";
+
+        Http::fake([
+            'store.steampowered.com/api/storesearch/*' => Http::response([
+                'items' => [['id' => $appId, 'name' => "Castlevania: Belmont's Curse"]],
+            ], 200),
+            'store.steampowered.com/api/appdetails*' => Http::response([
+                (string) $appId => [
+                    'success' => true,
+                    'data' => [
+                        'name' => "Castlevania: Belmont's Curse",
+                        'header_image' => $header,
+                        'background_raw' => $bgRaw,
+                        'screenshots' => [
+                            ['path_full' => "https://example.com/ss.1920x1080.jpg"],
+                        ],
+                        'platforms' => ['windows' => true, 'mac' => false, 'linux' => false],
+                        'genres' => [],
+                        'categories' => [],
+                        'developers' => [],
+                        'publishers' => [],
+                        'release_date' => ['date' => '14 Oct, 2026'],
+                        'short_description' => 'Test',
+                    ],
+                ],
+            ], 200),
+            'store.steampowered.com/appreviews/*' => Http::response([
+                'query_summary' => ['review_score' => 0, 'total_reviews' => 0],
+            ], 200),
+            $libraryHero => Http::response('', 404),
+        ]);
+
+        $game = app(SteamStoreService::class)->getGameByTitle("Castlevania: Belmont's Curse");
+
+        $this->assertNotNull($game);
+        $this->assertSame($bgRaw, $game['background_image']);
+    }
+
     public function test_nexarda_search_maps_normal_price_via_price_helper(): void
     {
         Cache::flush();

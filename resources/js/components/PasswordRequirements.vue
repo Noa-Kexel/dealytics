@@ -80,8 +80,5 @@ const hasStartedTyping = computed(() => props.password.length > 0);
                 <span>{{ rule.label }}</span>
             </li>
         </ul>
-        <p class="mt-2 text-[11px] leading-relaxed text-muted-foreground/80">
-            Il ne doit pas non plus figurer dans des fuites de données connues.
-        </p>
     </div>
 </template>
