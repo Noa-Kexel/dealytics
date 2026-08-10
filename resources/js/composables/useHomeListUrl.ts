@@ -34,7 +34,10 @@ export function parseHomeListQuery(
     };
 }
 
-export function buildHomeListPath(filters: HomeListFilters): string {
+export function buildHomeListPath(
+    filters: HomeListFilters,
+    options: { to?: string } = {},
+): string {
     const params = new URLSearchParams();
 
     if (filters.q.trim()) {
@@ -55,6 +58,10 @@ export function buildHomeListPath(filters: HomeListFilters): string {
 
     if (filters.sale) {
         params.set('sale', '1');
+    }
+
+    if (options.to) {
+        params.set('to', options.to);
     }
 
     const qs = params.toString();
