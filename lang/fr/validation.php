@@ -187,6 +187,7 @@ return [
         'target_price' => [
             'numeric' => 'Le prix cible doit être un nombre (utilisez un point pour les décimales).',
             'min' => 'Le prix cible doit être supérieur à :min €.',
+            'below_current' => 'Le prix cible doit être inférieur au prix actuel (:price €).',
         ],
     ],
 

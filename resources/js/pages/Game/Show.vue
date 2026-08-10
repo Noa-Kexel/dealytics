@@ -538,6 +538,18 @@ async function setAlertPrice() {
         return;
     }
 
+    if (!currentPrice.value || currentPrice.value <= 0) {
+        alertError.value = 'Prix actuel indisponible pour définir une alerte.';
+
+        return;
+    }
+
+    if (value >= currentPrice.value) {
+        alertError.value = `Le prix cible doit être inférieur au prix actuel (${currentPrice.value.toFixed(2)}${currencySymbol.value}).`;
+
+        return;
+    }
+
     if (value > 1000) {
         alertError.value = 'Prix trop élevé (max 1000€).';
 
@@ -545,8 +557,20 @@ async function setAlertPrice() {
     }
 
     alertError.value = '';
-    await addAlert(gameId, title.value, Math.round(value * 100) / 100);
-    alertSet.value = true;
+
+    try {
+        await addAlert(
+            gameId,
+            title.value,
+            Math.round(value * 100) / 100,
+            currentPrice.value,
+        );
+        alertSet.value = true;
+    } catch (error) {
+        alertError.value = error instanceof Error
+            ? error.message
+            : 'Impossible d’enregistrer l’alerte.';
+    }
 }
 
 function clearAlert() {
@@ -1187,7 +1211,11 @@ onMounted(async () => {
                         </div>
 
                         <p class="mb-3 text-xs text-muted-foreground">
-                            Définissez un prix cible et soyez notifié quand il est atteint.
+                            Définissez un prix cible
+                            <span v-if="currentPrice > 0">
+                                inférieur à {{ currentPrice.toFixed(2) }}{{ currencySymbol }}
+                            </span>
+                            et soyez notifié quand il est atteint.
                         </p>
 
                         <div v-if="alertSet" class="rounded-lg bg-dealytics-cyan/10 p-3 text-center">
@@ -1209,8 +1237,8 @@ onMounted(async () => {
                                     v-model="alertPrice"
                                     type="number"
                                     step="0.01"
-                                    min="0"
-                                    max="1000"
+                                    min="0.01"
+                                    :max="currentPrice > 0 ? (currentPrice - 0.01).toFixed(2) : undefined"
                                     placeholder="Prix cible (€)"
                                     class="h-9 text-sm"
                                     @keyup.enter="setAlertPrice"
@@ -1219,7 +1247,7 @@ onMounted(async () => {
                                 <Button
                                     size="sm"
                                     class="shrink-0 bg-dealytics-purple hover:bg-dealytics-deep-purple"
-                                    :disabled="!alertPrice"
+                                    :disabled="!alertPrice || currentPrice <= 0"
                                     @click="setAlertPrice"
                                 >
                                     <Bell class="size-3.5" />

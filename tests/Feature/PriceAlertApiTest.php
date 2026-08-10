@@ -22,11 +22,18 @@ class PriceAlertApiTest extends TestCase
     {
         $user = User::factory()->create();
 
+        $this->mock(NexardaService::class, function ($mock) {
+            $mock->shouldReceive('getPrices')
+                ->with(96)
+                ->andReturn(['lowest' => 40.00]);
+        });
+
         $this->actingAs($user)
             ->postJson('/api/alerts', [
                 'game_id' => '96',
                 'title' => 'Cyberpunk 2077',
                 'target_price' => 25.50,
+                'current_price' => 40.00,
             ])
             ->assertCreated()
             ->assertJsonPath('target_price', '25.50');
@@ -54,6 +61,12 @@ class PriceAlertApiTest extends TestCase
     {
         $user = User::factory()->create();
 
+        $this->mock(NexardaService::class, function ($mock) {
+            $mock->shouldReceive('getPrices')
+                ->with(96)
+                ->andReturn(['lowest' => 30.00]);
+        });
+
         $user->priceAlerts()->create([
             'game_id' => '96',
             'title' => 'Cyberpunk 2077',
@@ -67,6 +80,7 @@ class PriceAlertApiTest extends TestCase
                 'game_id' => '96',
                 'title' => 'Cyberpunk 2077',
                 'target_price' => 18.00,
+                'current_price' => 30.00,
             ])
             ->assertCreated();
 
@@ -117,6 +131,65 @@ class PriceAlertApiTest extends TestCase
                 'game_id' => '96',
                 'title' => 'Cyberpunk 2077',
                 'target_price' => -1,
+                'current_price' => 40.00,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('target_price');
+    }
+
+    public function test_alert_validation_rejects_target_price_above_or_equal_to_current(): void
+    {
+        $user = User::factory()->create();
+
+        $this->mock(NexardaService::class, function ($mock) {
+            $mock->shouldReceive('getPrices')
+                ->with(96)
+                ->twice()
+                ->andReturn(['lowest' => 33.62]);
+        });
+
+        $this->actingAs($user)
+            ->postJson('/api/alerts', [
+                'game_id' => '96',
+                'title' => 'Halo: Campaign Evolved',
+                'target_price' => 60.00,
+                'current_price' => 33.62,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('target_price');
+
+        $this->actingAs($user)
+            ->postJson('/api/alerts', [
+                'game_id' => '96',
+                'title' => 'Halo: Campaign Evolved',
+                'target_price' => 33.62,
+                'current_price' => 33.62,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('target_price');
+
+        $this->assertSame(0, $user->priceAlerts()->count());
+    }
+
+    public function test_alert_uses_live_price_when_client_sends_stale_current_price(): void
+    {
+        $user = User::factory()->create();
+
+        $this->mock(NexardaService::class, function ($mock) {
+            $mock->shouldReceive('getPrices')
+                ->with(96)
+                ->once()
+                ->andReturn(['lowest' => 20.00]);
+        });
+
+        // Le client ment / a un prix obsolète à 50€, mais le live est à 20€ :
+        // un objectif à 25€ doit être refusé.
+        $this->actingAs($user)
+            ->postJson('/api/alerts', [
+                'game_id' => '96',
+                'title' => 'Cyberpunk 2077',
+                'target_price' => 25.00,
+                'current_price' => 50.00,
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('target_price');

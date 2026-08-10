@@ -161,17 +161,24 @@ export function useAlerts() {
         }
     }
 
-    async function addAlert(gameID: string, title: string, targetPrice: number) {
+    async function addAlert(
+        gameID: string,
+        title: string,
+        targetPrice: number,
+        currentPrice?: number | null,
+    ) {
         await requestNotificationPermission();
 
         const existing = alerts.value.findIndex(
             (a) => (a.game_id || a.gameID) === gameID,
         );
+        const previous = existing >= 0 ? { ...alerts.value[existing] } : null;
 
         if (existing >= 0) {
             alerts.value[existing] = normalize({
                 ...alerts.value[existing],
                 target_price: targetPrice,
+                current_price: currentPrice ?? alerts.value[existing].current_price,
                 is_reached: false,
                 notified_at: null,
             });
@@ -181,6 +188,7 @@ export function useAlerts() {
                 gameID,
                 title,
                 target_price: targetPrice,
+                current_price: currentPrice ?? null,
                 is_reached: false,
                 created_at: new Date().toISOString(),
             }));
@@ -190,10 +198,23 @@ export function useAlerts() {
             try {
                 await api('/api/alerts', {
                     method: 'POST',
-                    body: { game_id: gameID, title, target_price: targetPrice },
+                    body: {
+                        game_id: gameID,
+                        title,
+                        target_price: targetPrice,
+                        current_price: currentPrice ?? 0,
+                    },
                 });
-            } catch {
-                // garde l'état optimiste
+            } catch (error) {
+                if (previous) {
+                    alerts.value[existing!] = previous;
+                } else {
+                    alerts.value = alerts.value.filter(
+                        (a) => (a.game_id || a.gameID) !== gameID,
+                    );
+                }
+
+                throw error;
             }
         } else {
             saveToStorage();
