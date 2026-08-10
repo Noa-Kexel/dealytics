@@ -27,11 +27,33 @@ interface EnrichedFavorite extends FavoriteGame {
     loading?: boolean;
 }
 
-const { getActiveAlerts } = useAlerts();
+const { getActiveAlerts, loadAlerts } = useAlerts();
 const { favorites: rawFavorites, loadFavorites, removeFavorite: removeFav } = useFavorites();
 
 const enrichedFavorites = ref<EnrichedFavorite[]>([]);
 const sortBy = ref('date');
+const listFilter = ref<'all' | 'alerts'>('all');
+
+const alertGameIds = computed(() => {
+    const ids = new Set<string>();
+
+    for (const alert of getActiveAlerts()) {
+        const id = alert.game_id || alert.gameID;
+
+        if (id) {
+            ids.add(id);
+        }
+    }
+
+    return ids;
+});
+
+const activeAlertsCount = computed(() => getActiveAlerts().length);
+
+function showAlertFavorites() {
+    listFilter.value = listFilter.value === 'alerts' ? 'all' : 'alerts';
+    document.getElementById('favorites-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 const totalSaved = computed(() => {
     return Math.round(
@@ -159,8 +181,7 @@ async function openWishlistGame(item: WishlistItem) {
 
 onMounted(async () => {
     loadWishlist();
-
-    await loadFavorites();
+    await Promise.all([loadFavorites(), loadAlerts()]);
     enrichedFavorites.value = rawFavorites.value.map((f) => ({
         ...f,
         loading: true,
@@ -207,6 +228,18 @@ const sortedFavorites = computed(() => {
 
     return sorted;
 });
+
+const displayedFavorites = computed(() => {
+    if (listFilter.value !== 'alerts') {
+        return sortedFavorites.value;
+    }
+
+    return sortedFavorites.value.filter((fav) => alertGameIds.value.has(fav.game_id));
+});
+
+function hasAlert(gameId: string): boolean {
+    return alertGameIds.value.has(gameId);
+}
 </script>
 
 <template>
@@ -234,9 +267,13 @@ const sortedFavorites = computed(() => {
             <StatCard
                 :icon="Bell"
                 label="Alertes actives"
-                :value="getActiveAlerts().length"
+                :value="activeAlertsCount"
+                :hint="listFilter === 'alerts' ? 'Filtre actif — cliquer pour tout voir' : 'Cliquer pour voir les jeux avec alerte'"
                 icon-class="text-dealytics-cyan"
                 icon-bg-class="bg-dealytics-cyan/20"
+                clickable
+                :active="listFilter === 'alerts'"
+                @click="showAlertFavorites"
             />
             <StatCard
                 :icon="TrendingDown"
@@ -254,8 +291,8 @@ const sortedFavorites = computed(() => {
                 icon-bg-class="bg-dealytics-purple/20"
             />
         </div>
-        <div class="mb-6 border-gradient rounded-xl px-4 py-3">
-            <div class="flex items-center gap-3">
+        <div id="favorites-list" class="mb-6 scroll-mt-24 border-gradient rounded-xl px-4 py-3">
+            <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     <ArrowUpDown class="size-3.5" />
                     Trier
@@ -271,11 +308,21 @@ const sortedFavorites = computed(() => {
                         <SelectItem value="discount">Réduction</SelectItem>
                     </SelectContent>
                 </Select>
+                <button
+                    v-if="listFilter === 'alerts'"
+                    type="button"
+                    class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-dealytics-cyan/40 bg-dealytics-cyan/10 px-3 text-xs font-medium text-dealytics-cyan transition-colors hover:bg-dealytics-cyan/20"
+                    @click="listFilter = 'all'"
+                >
+                    <Bell class="size-3" />
+                    Avec alerte
+                    <span class="text-dealytics-cyan/70">×</span>
+                </button>
             </div>
         </div>
-        <div v-if="sortedFavorites.length > 0" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div v-if="displayedFavorites.length > 0" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             <Link
-                v-for="fav in sortedFavorites"
+                v-for="fav in displayedFavorites"
                 :key="fav.game_id"
                 :href="`/game/${fav.game_id}`"
                 class="group border-gradient overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02]"
@@ -303,6 +350,13 @@ const sortedFavorites = computed(() => {
                         class="absolute top-2 right-2 rounded-md bg-dealytics-purple px-2 py-0.5 text-[11px] font-bold text-white"
                     >
                         -{{ Math.round(fav.savings) }}%
+                    </div>
+                    <div
+                        v-if="hasAlert(fav.game_id)"
+                        class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full border border-dealytics-cyan/40 bg-dealytics-cyan/20 backdrop-blur-sm"
+                        title="Alerte active"
+                    >
+                        <Bell class="size-3.5 text-dealytics-cyan" />
                     </div>
                     <button
                         class="absolute bottom-2 right-2 flex size-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-all hover:bg-red-500/50"
@@ -336,6 +390,26 @@ const sortedFavorites = computed(() => {
                     </div>
                 </div>
             </Link>
+        </div>
+        <div v-else-if="listFilter === 'alerts'" class="flex flex-col items-center justify-center py-20 text-center">
+            <Bell class="mb-4 size-16 text-muted-foreground/20" />
+            <h3 class="font-heading text-lg font-semibold text-foreground">Aucune alerte sur vos favoris</h3>
+            <p class="mt-1 max-w-sm text-sm text-muted-foreground">
+                Les alertes actives hors favoris sont visibles sur le dashboard.
+                Ajoutez une alerte depuis la fiche d’un jeu.
+            </p>
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-3">
+                <button
+                    type="button"
+                    class="text-sm text-dealytics-cyan hover:underline"
+                    @click="listFilter = 'all'"
+                >
+                    Voir tous les favoris
+                </button>
+                <Link href="/dashboard#price-alerts" class="text-sm text-dealytics-purple hover:underline">
+                    Voir les alertes
+                </Link>
+            </div>
         </div>
         <div v-else class="flex flex-col items-center justify-center py-20 text-center">
             <Heart class="mb-4 size-16 text-muted-foreground/20" />

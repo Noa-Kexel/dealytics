@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -49,13 +49,30 @@ import { buildHomeListPath } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import type { GameItem } from '@/types';
 
-const topOffersHomeUrl = buildHomeListPath({
-    q: '',
-    platform: 'all',
-    max: 'all',
-    sort: 'savings',
-    sale: true,
-});
+const topOffersHomeUrl = buildHomeListPath(
+    {
+        q: '',
+        platform: 'all',
+        max: 'all',
+        sort: 'savings',
+        sale: true,
+    },
+    { to: 'deals' },
+);
+
+function goToTopOffers() {
+    router.visit(topOffersHomeUrl, {
+        onFinish: () => {
+            const delays = [0, 50, 100, 250, 500];
+
+            for (const delay of delays) {
+                window.setTimeout(() => {
+                    document.getElementById('deals')?.scrollIntoView({ behavior: 'auto', block: 'start' });
+                }, delay);
+            }
+        },
+    });
+}
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
@@ -220,6 +237,13 @@ onMounted(async () => {
 
     checkAlerts();
     refreshChart();
+
+    if (typeof window !== 'undefined' && window.location.hash) {
+        requestAnimationFrame(() => {
+            document.getElementById(window.location.hash.slice(1))
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
 
     try {
         const response = await fetch('/api/games');
@@ -461,7 +485,7 @@ onMounted(async () => {
             </div>
         </div>
         <div v-reveal class="grid gap-4 lg:grid-cols-2">
-            <div id="price-alerts" class="border-gradient rounded-xl p-6">
+            <div id="price-alerts" class="scroll-mt-24 border-gradient rounded-xl p-6">
                 <div class="mb-4 flex items-center gap-2">
                     <Bell class="size-4 text-dealytics-cyan" />
                     <h2 class="font-heading text-lg font-semibold">Alertes de prix</h2>
@@ -526,13 +550,14 @@ onMounted(async () => {
                         <Target class="size-4 text-dealytics-pink" />
                         <h2 class="font-heading text-lg font-semibold">Top Offres du Moment</h2>
                     </div>
-                    <Link
-                        :href="topOffersHomeUrl"
+                    <button
+                        type="button"
                         class="inline-flex items-center gap-1 text-xs font-medium text-dealytics-pink transition-colors hover:text-dealytics-pink/80"
+                        @click="goToTopOffers"
                     >
                         Voir tout
                         <ArrowRight class="size-3.5" />
-                    </Link>
+                    </button>
                 </div>
 
                 <div v-if="loadingDeals" class="space-y-3">
