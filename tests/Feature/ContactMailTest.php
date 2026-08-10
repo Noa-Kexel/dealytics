@@ -90,5 +90,11 @@ class ContactMailTest extends TestCase
         $html = (string) (new VerifyEmail)->toMail($user)->render();
 
         $this->assertStringContainsString('parce que vous avez un compte', $html);
+        // Le lien doit rester du HTML (pas échappé) : sinon Gmail affiche les balises en clair.
+        $this->assertMatchesRegularExpression(
+            '/parce que vous avez un compte sur\s*<a href="[^"]+"[^>]*>[^<]+<\/a>\./',
+            $html,
+        );
+        $this->assertStringNotContainsString('&lt;a href=', $html);
     }
 }

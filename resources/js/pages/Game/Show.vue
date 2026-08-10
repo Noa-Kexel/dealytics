@@ -39,7 +39,11 @@ import { getRememberedHomeListUrl } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import type { NexardaGamePrices, NexardaOffer } from '@/lib/nexarda';
 import { fetchNexardaGame } from '@/lib/nexarda';
-import { extractOfferPlatform, offerPlatformLabel } from '@/lib/platforms';
+import {
+    extractOfferPlatforms,
+    offerPlatformLabel,
+    parseOfferEdition,
+} from '@/lib/platforms';
 import { deriveNormalPrice } from '@/lib/price';
 import {
     getQualityPriceScore,
@@ -332,8 +336,12 @@ const normalPrice = computed(
     () => deriveNormalPrice(currentPrice.value, savingsPercent.value, nexarda.value?.highest) ?? currentPrice.value,
 );
 
-function offerPlatform(offer: NexardaOffer): string | null {
-    return extractOfferPlatform(offer.editionFull, offer.platform);
+function offerPlatformsList(offer: NexardaOffer): string[] {
+    return extractOfferPlatforms(offer.editionFull, offer.platform);
+}
+
+function offerEditionMeta(offer: NexardaOffer) {
+    return parseOfferEdition(offer.editionFull, offer.edition, offer.platform);
 }
 
 function platformLabel(slug: string): string {
@@ -360,13 +368,9 @@ const offerPlatforms = computed(() => {
     const counts = new Map<string, number>();
 
     for (const offer of nexarda.value?.offers ?? []) {
-        const platform = offerPlatform(offer);
-
-        if (!platform) {
-            continue;
+        for (const platform of offerPlatformsList(offer)) {
+            counts.set(platform, (counts.get(platform) ?? 0) + 1);
         }
-
-        counts.set(platform, (counts.get(platform) ?? 0) + 1);
     }
 
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
@@ -379,7 +383,9 @@ const filteredOffers = computed(() => {
         return offers;
     }
 
-    return offers.filter((offer) => offerPlatform(offer) === selectedOfferPlatform.value);
+    return offers.filter((offer) =>
+        offerPlatformsList(offer).includes(selectedOfferPlatform.value),
+    );
 });
 
 const offersTotalPages = computed(() =>
@@ -391,6 +397,13 @@ const paginatedOffers = computed(() => {
 
     return filteredOffers.value.slice(start, start + OFFERS_PER_PAGE);
 });
+
+const paginatedOfferRows = computed(() =>
+    paginatedOffers.value.map((offer) => ({
+        offer,
+        edition: offerEditionMeta(offer),
+    })),
+);
 
 const offersPageLabel = computed(() => {
     const total = filteredOffers.value.length;
@@ -995,7 +1008,7 @@ onMounted(async () => {
                         </div>
                         <div v-if="filteredOffers.length" ref="offersListEl" class="space-y-2 scroll-mt-24">
                             <a
-                                v-for="(offer, idx) in paginatedOffers"
+                                v-for="({ offer, edition }, idx) in paginatedOfferRows"
                                 :key="`${offer.store}-${offer.price}-${idx}`"
                                 :href="offer.url || undefined"
                                 target="_blank"
@@ -1030,8 +1043,18 @@ onMounted(async () => {
                                             <span v-if="offer.discount > 0" class="whitespace-nowrap text-[10px] text-dealytics-pink">
                                                 -{{ offer.discount }}%
                                             </span>
-                                            <span v-if="offer.editionFull" class="min-w-0 truncate text-[10px] text-muted-foreground">
-                                                {{ offer.editionFull }}
+                                            <span
+                                                v-if="edition.label"
+                                                class="min-w-0 truncate text-[10px] text-muted-foreground"
+                                            >
+                                                {{ edition.label }}
+                                            </span>
+                                            <span
+                                                v-for="platform in edition.platforms"
+                                                :key="platform"
+                                                class="shrink-0 whitespace-nowrap rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
+                                            >
+                                                {{ platformLabel(platform) }}
                                             </span>
                                             <span
                                                 v-if="offer.coupon"

@@ -25,6 +25,7 @@ import {
     Flame,
     Check,
     TriangleAlert,
+    ArrowRight,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted } from 'vue';
 import { Bar } from 'vue-chartjs';
@@ -44,8 +45,17 @@ import { useAlerts } from '@/composables/useAlerts';
 import { useBudget  } from '@/composables/useBudget';
 import type {Purchase} from '@/composables/useBudget';
 import { useFavorites } from '@/composables/useFavorites';
+import { buildHomeListPath } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import type { GameItem } from '@/types';
+
+const topOffersHomeUrl = buildHomeListPath({
+    q: '',
+    platform: 'all',
+    max: 'all',
+    sort: 'savings',
+    sale: true,
+});
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip);
 
@@ -511,9 +521,18 @@ onMounted(async () => {
                 </p>
             </div>
             <div class="border-gradient rounded-xl p-6">
-                <div class="mb-4 flex items-center gap-2">
-                    <Target class="size-4 text-dealytics-pink" />
-                    <h2 class="font-heading text-lg font-semibold">Top Offres du Moment</h2>
+                <div class="mb-4 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <Target class="size-4 text-dealytics-pink" />
+                        <h2 class="font-heading text-lg font-semibold">Top Offres du Moment</h2>
+                    </div>
+                    <Link
+                        :href="topOffersHomeUrl"
+                        class="inline-flex items-center gap-1 text-xs font-medium text-dealytics-pink transition-colors hover:text-dealytics-pink/80"
+                    >
+                        Voir tout
+                        <ArrowRight class="size-3.5" />
+                    </Link>
                 </div>
 
                 <div v-if="loadingDeals" class="space-y-3">

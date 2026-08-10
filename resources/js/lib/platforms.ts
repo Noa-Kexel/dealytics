@@ -44,13 +44,55 @@ export function offerPlatformLabel(slug: string): string {
     return OFFER_PLATFORM_LABELS[slug] ?? slug.replace(/-/g, ' ');
 }
 
-/** Extrait le code plateforme depuis edition_full (FOR:…). */
-export function extractOfferPlatform(editionFull?: string | null, platform?: string | null): string | null {
-    if (platform) {
-        return platform;
+const FOR_PLATFORM_RE = /FOR:\s*([A-Z0-9-]+)/gi;
+
+/** Tous les codes plateforme présents dans edition_full (FOR:…). */
+export function extractOfferPlatforms(
+    editionFull?: string | null,
+    platform?: string | null,
+): string[] {
+    const found: string[] = [];
+
+    if (editionFull) {
+        for (const match of editionFull.matchAll(FOR_PLATFORM_RE)) {
+            const code = match[1].toUpperCase();
+
+            if (!found.includes(code)) {
+                found.push(code);
+            }
+        }
     }
 
-    const match = editionFull?.match(/FOR:([A-Z0-9-]+)/i);
+    if (platform) {
+        const code = platform.toUpperCase();
 
-    return match ? match[1].toUpperCase() : null;
+        if (!found.includes(code)) {
+            found.unshift(code);
+        }
+    }
+
+    return found;
+}
+
+/** Premier code plateforme (filtre / rétrocompat). */
+export function extractOfferPlatform(editionFull?: string | null, platform?: string | null): string | null {
+    return extractOfferPlatforms(editionFull, platform)[0] ?? null;
+}
+
+export type ParsedOfferEdition = {
+    label: string | null;
+    platforms: string[];
+};
+
+/** Sépare le libellé d'édition des tags FOR:… pour l'affichage. */
+export function parseOfferEdition(
+    editionFull?: string | null,
+    edition?: string | null,
+    platform?: string | null,
+): ParsedOfferEdition {
+    const platforms = extractOfferPlatforms(editionFull, platform);
+    const cleaned = editionFull?.replace(FOR_PLATFORM_RE, '').replace(/\s+/g, ' ').trim() ?? '';
+    const label = cleaned || edition?.trim() || null;
+
+    return { label, platforms };
 }

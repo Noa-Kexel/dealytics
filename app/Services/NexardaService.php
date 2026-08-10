@@ -12,7 +12,7 @@ class NexardaService
 
     private static function extractPlatform(?string $editionFull): ?string
     {
-        if (! $editionFull || ! preg_match('/FOR:([A-Z0-9\-]+)/i', $editionFull, $matches)) {
+        if (! $editionFull || ! preg_match('/FOR:\s*([A-Z0-9\-]+)/i', $editionFull, $matches)) {
             return null;
         }
 
