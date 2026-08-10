@@ -62,6 +62,7 @@ const PLATFORMS = FILTER_PLATFORMS;
 const platformSlugs = new Set(PLATFORMS.map((p) => p.slug));
 
 const page = usePage();
+const isAuthenticated = computed(() => !!page.props.auth?.user);
 const initialFilters = parseHomeListQuery(
     new URL(page.url, 'http://localhost').search,
     platformSlugs,
@@ -695,6 +696,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
             </div>
         </section>
         <section
+            v-if="!isAuthenticated"
             v-reveal
             class="border-gradient-strong relative mt-12 overflow-hidden rounded-2xl p-8 text-center md:p-12"
         >
