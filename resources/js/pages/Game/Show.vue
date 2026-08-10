@@ -1177,15 +1177,17 @@ onMounted(async () => {
                             <Button
                                 :class="[
                                     'w-full gap-2 transition-all duration-200 active:scale-95',
-                                    !isFavorite && 'hover:border-dealytics-purple/50 hover:bg-dealytics-purple/10 hover:text-dealytics-purple dark:hover:border-dealytics-purple/50 dark:hover:bg-dealytics-purple/10 dark:hover:text-dealytics-purple',
+                                    isFavorite
+                                        ? 'border-transparent bg-dealytics-purple text-white hover:bg-dealytics-deep-purple dark:bg-dealytics-purple dark:hover:bg-dealytics-deep-purple'
+                                        : 'border-dealytics-purple/40 bg-dealytics-purple/10 text-dealytics-purple hover:border-dealytics-purple/60 hover:bg-dealytics-purple/20 hover:text-dealytics-purple dark:border-dealytics-purple/40 dark:bg-dealytics-purple/10 dark:text-dealytics-purple dark:hover:bg-dealytics-purple/20',
                                 ]"
-                                :variant="isFavorite ? 'default' : 'outline'"
+                                variant="outline"
                                 @click="toggleFavorite"
                             >
                                 <Heart
                                     class="size-4 transition-all duration-300"
                                     :class="[
-                                        isFavorite ? 'fill-white' : '',
+                                        isFavorite ? 'fill-white text-white' : 'text-dealytics-purple',
                                         heartAnimating ? 'animate-heart-pop' : '',
                                     ]"
                                 />
@@ -1382,15 +1384,20 @@ onMounted(async () => {
                     </div>
                     <Button
                         size="icon"
-                        :variant="isFavorite ? 'default' : 'outline'"
+                        variant="outline"
                         class="size-11 shrink-0 transition-all duration-200 active:scale-95"
+                        :class="
+                            isFavorite
+                                ? 'border-transparent bg-dealytics-purple text-white hover:bg-dealytics-deep-purple dark:bg-dealytics-purple dark:hover:bg-dealytics-deep-purple'
+                                : 'border-dealytics-purple/40 bg-dealytics-purple/10 text-dealytics-purple hover:border-dealytics-purple/60 hover:bg-dealytics-purple/20 dark:border-dealytics-purple/40 dark:bg-dealytics-purple/10 dark:text-dealytics-purple dark:hover:bg-dealytics-purple/20'
+                        "
                         :aria-label="isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                         @click="toggleFavorite"
                     >
                         <Heart
                             class="size-4 transition-all duration-300"
                             :class="[
-                                isFavorite ? 'fill-white' : '',
+                                isFavorite ? 'fill-white text-white' : 'text-dealytics-purple',
                                 heartAnimating ? 'animate-heart-pop' : '',
                             ]"
                         />
