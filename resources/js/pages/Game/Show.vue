@@ -39,7 +39,11 @@ import { getRememberedHomeListUrl } from '@/composables/useHomeListUrl';
 import { vReveal } from '@/directives/reveal';
 import type { NexardaGamePrices, NexardaOffer } from '@/lib/nexarda';
 import { fetchNexardaGame } from '@/lib/nexarda';
-import { extractOfferPlatform, offerPlatformLabel } from '@/lib/platforms';
+import {
+    extractOfferPlatforms,
+    offerPlatformLabel,
+    parseOfferEdition,
+} from '@/lib/platforms';
 import { deriveNormalPrice } from '@/lib/price';
 import {
     getQualityPriceScore,
@@ -332,8 +336,12 @@ const normalPrice = computed(
     () => deriveNormalPrice(currentPrice.value, savingsPercent.value, nexarda.value?.highest) ?? currentPrice.value,
 );
 
-function offerPlatform(offer: NexardaOffer): string | null {
-    return extractOfferPlatform(offer.editionFull, offer.platform);
+function offerPlatformsList(offer: NexardaOffer): string[] {
+    return extractOfferPlatforms(offer.editionFull, offer.platform);
+}
+
+function offerEditionMeta(offer: NexardaOffer) {
+    return parseOfferEdition(offer.editionFull, offer.edition, offer.platform);
 }
 
 function platformLabel(slug: string): string {
@@ -360,13 +368,9 @@ const offerPlatforms = computed(() => {
     const counts = new Map<string, number>();
 
     for (const offer of nexarda.value?.offers ?? []) {
-        const platform = offerPlatform(offer);
-
-        if (!platform) {
-            continue;
+        for (const platform of offerPlatformsList(offer)) {
+            counts.set(platform, (counts.get(platform) ?? 0) + 1);
         }
-
-        counts.set(platform, (counts.get(platform) ?? 0) + 1);
     }
 
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
@@ -379,7 +383,9 @@ const filteredOffers = computed(() => {
         return offers;
     }
 
-    return offers.filter((offer) => offerPlatform(offer) === selectedOfferPlatform.value);
+    return offers.filter((offer) =>
+        offerPlatformsList(offer).includes(selectedOfferPlatform.value),
+    );
 });
 
 const offersTotalPages = computed(() =>
@@ -391,6 +397,13 @@ const paginatedOffers = computed(() => {
 
     return filteredOffers.value.slice(start, start + OFFERS_PER_PAGE);
 });
+
+const paginatedOfferRows = computed(() =>
+    paginatedOffers.value.map((offer) => ({
+        offer,
+        edition: offerEditionMeta(offer),
+    })),
+);
 
 const offersPageLabel = computed(() => {
     const total = filteredOffers.value.length;
@@ -525,6 +538,18 @@ async function setAlertPrice() {
         return;
     }
 
+    if (!currentPrice.value || currentPrice.value <= 0) {
+        alertError.value = 'Prix actuel indisponible pour définir une alerte.';
+
+        return;
+    }
+
+    if (value >= currentPrice.value) {
+        alertError.value = `Le prix cible doit être inférieur au prix actuel (${currentPrice.value.toFixed(2)}${currencySymbol.value}).`;
+
+        return;
+    }
+
     if (value > 1000) {
         alertError.value = 'Prix trop élevé (max 1000€).';
 
@@ -532,8 +557,20 @@ async function setAlertPrice() {
     }
 
     alertError.value = '';
-    await addAlert(gameId, title.value, Math.round(value * 100) / 100);
-    alertSet.value = true;
+
+    try {
+        await addAlert(
+            gameId,
+            title.value,
+            Math.round(value * 100) / 100,
+            currentPrice.value,
+        );
+        alertSet.value = true;
+    } catch (error) {
+        alertError.value = error instanceof Error
+            ? error.message
+            : 'Impossible d’enregistrer l’alerte.';
+    }
 }
 
 function clearAlert() {
@@ -995,7 +1032,7 @@ onMounted(async () => {
                         </div>
                         <div v-if="filteredOffers.length" ref="offersListEl" class="space-y-2 scroll-mt-24">
                             <a
-                                v-for="(offer, idx) in paginatedOffers"
+                                v-for="({ offer, edition }, idx) in paginatedOfferRows"
                                 :key="`${offer.store}-${offer.price}-${idx}`"
                                 :href="offer.url || undefined"
                                 target="_blank"
@@ -1030,8 +1067,18 @@ onMounted(async () => {
                                             <span v-if="offer.discount > 0" class="whitespace-nowrap text-[10px] text-dealytics-pink">
                                                 -{{ offer.discount }}%
                                             </span>
-                                            <span v-if="offer.editionFull" class="min-w-0 truncate text-[10px] text-muted-foreground">
-                                                {{ offer.editionFull }}
+                                            <span
+                                                v-if="edition.label"
+                                                class="min-w-0 truncate text-[10px] text-muted-foreground"
+                                            >
+                                                {{ edition.label }}
+                                            </span>
+                                            <span
+                                                v-for="platform in edition.platforms"
+                                                :key="platform"
+                                                class="shrink-0 whitespace-nowrap rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
+                                            >
+                                                {{ platformLabel(platform) }}
                                             </span>
                                             <span
                                                 v-if="offer.coupon"
@@ -1130,15 +1177,17 @@ onMounted(async () => {
                             <Button
                                 :class="[
                                     'w-full gap-2 transition-all duration-200 active:scale-95',
-                                    !isFavorite && 'hover:border-dealytics-purple/50 hover:bg-dealytics-purple/10 hover:text-dealytics-purple dark:hover:border-dealytics-purple/50 dark:hover:bg-dealytics-purple/10 dark:hover:text-dealytics-purple',
+                                    isFavorite
+                                        ? 'border-transparent bg-dealytics-purple text-white hover:bg-dealytics-deep-purple dark:bg-dealytics-purple dark:hover:bg-dealytics-deep-purple'
+                                        : 'border-dealytics-purple/40 bg-dealytics-purple/10 text-dealytics-purple hover:border-dealytics-purple/60 hover:bg-dealytics-purple/20 hover:text-dealytics-purple dark:border-dealytics-purple/40 dark:bg-dealytics-purple/10 dark:text-dealytics-purple dark:hover:bg-dealytics-purple/20',
                                 ]"
-                                :variant="isFavorite ? 'default' : 'outline'"
+                                variant="outline"
                                 @click="toggleFavorite"
                             >
                                 <Heart
                                     class="size-4 transition-all duration-300"
                                     :class="[
-                                        isFavorite ? 'fill-white' : '',
+                                        isFavorite ? 'fill-white text-white' : 'text-dealytics-purple',
                                         heartAnimating ? 'animate-heart-pop' : '',
                                     ]"
                                 />
@@ -1164,7 +1213,11 @@ onMounted(async () => {
                         </div>
 
                         <p class="mb-3 text-xs text-muted-foreground">
-                            Définissez un prix cible et soyez notifié quand il est atteint.
+                            Définissez un prix cible
+                            <span v-if="currentPrice > 0">
+                                inférieur à {{ currentPrice.toFixed(2) }}{{ currencySymbol }}
+                            </span>
+                            et soyez notifié quand il est atteint.
                         </p>
 
                         <div v-if="alertSet" class="rounded-lg bg-dealytics-cyan/10 p-3 text-center">
@@ -1186,8 +1239,8 @@ onMounted(async () => {
                                     v-model="alertPrice"
                                     type="number"
                                     step="0.01"
-                                    min="0"
-                                    max="1000"
+                                    min="0.01"
+                                    :max="currentPrice > 0 ? (currentPrice - 0.01).toFixed(2) : undefined"
                                     placeholder="Prix cible (€)"
                                     class="h-9 text-sm"
                                     @keyup.enter="setAlertPrice"
@@ -1196,7 +1249,7 @@ onMounted(async () => {
                                 <Button
                                     size="sm"
                                     class="shrink-0 bg-dealytics-purple hover:bg-dealytics-deep-purple"
-                                    :disabled="!alertPrice"
+                                    :disabled="!alertPrice || currentPrice <= 0"
                                     @click="setAlertPrice"
                                 >
                                     <Bell class="size-3.5" />
@@ -1331,15 +1384,20 @@ onMounted(async () => {
                     </div>
                     <Button
                         size="icon"
-                        :variant="isFavorite ? 'default' : 'outline'"
+                        variant="outline"
                         class="size-11 shrink-0 transition-all duration-200 active:scale-95"
+                        :class="
+                            isFavorite
+                                ? 'border-transparent bg-dealytics-purple text-white hover:bg-dealytics-deep-purple dark:bg-dealytics-purple dark:hover:bg-dealytics-deep-purple'
+                                : 'border-dealytics-purple/40 bg-dealytics-purple/10 text-dealytics-purple hover:border-dealytics-purple/60 hover:bg-dealytics-purple/20 dark:border-dealytics-purple/40 dark:bg-dealytics-purple/10 dark:text-dealytics-purple dark:hover:bg-dealytics-purple/20'
+                        "
                         :aria-label="isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'"
                         @click="toggleFavorite"
                     >
                         <Heart
                             class="size-4 transition-all duration-300"
                             :class="[
-                                isFavorite ? 'fill-white' : '',
+                                isFavorite ? 'fill-white text-white' : 'text-dealytics-purple',
                                 heartAnimating ? 'animate-heart-pop' : '',
                             ]"
                         />

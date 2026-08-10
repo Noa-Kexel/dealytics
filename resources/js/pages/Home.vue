@@ -16,7 +16,7 @@ import {
     RefreshCw,
     RotateCcw,
 } from 'lucide-vue-next';
-import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue';
+import { onMounted, onBeforeUnmount, watch, ref, computed, nextTick } from 'vue';
 import GameCard from '@/components/GameCard.vue';
 import GameCardSkeleton from '@/components/GameCardSkeleton.vue';
 import GameImage from '@/components/GameImage.vue';
@@ -62,6 +62,7 @@ const PLATFORMS = FILTER_PLATFORMS;
 const platformSlugs = new Set(PLATFORMS.map((p) => p.slug));
 
 const page = usePage();
+const isAuthenticated = computed(() => !!page.props.auth?.user);
 const initialFilters = parseHomeListQuery(
     new URL(page.url, 'http://localhost').search,
     platformSlugs,
@@ -113,11 +114,58 @@ function resetFilters() {
     onSaleOnly.value = false;
 }
 
+function scrollToDealsSection(): boolean {
+    const el = document.getElementById('deals');
+
+    if (!el) {
+        return false;
+    }
+
+    el.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+    return true;
+}
+
+/** Inertia recentre en haut après le mount : plusieurs essais pour gagner la course. */
+function scheduleScrollToDeals() {
+    const delays = [0, 50, 100, 250, 500];
+
+    for (const delay of delays) {
+        window.setTimeout(() => {
+            scrollToDealsSection();
+        }, delay);
+    }
+}
+
+function shouldScrollToDeals(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    if (window.location.hash === '#deals') {
+        return true;
+    }
+
+    try {
+        return new URL(page.url, 'http://localhost').searchParams.get('to') === 'deals';
+    } catch {
+        return false;
+    }
+}
+
 onMounted(() => {
+    const scrollDeals = shouldScrollToDeals();
+
     persistListUrl();
     loadFavorites();
     loadGames();
     loadStats();
+
+    if (scrollDeals) {
+        nextTick(() => {
+            scheduleScrollToDeals();
+        });
+    }
 });
 
 // Tri / filtre côté client (l'API Nexarda ignore ces params).
@@ -446,7 +494,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                     v-model="searchQuery"
                     type="text"
                     placeholder="Rechercher des jeux... (ex: Cyberpunk, Elden Ring)"
-                    class="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    class="flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none md:text-sm"
                     role="combobox"
                     :aria-expanded="showSuggestions"
                     aria-autocomplete="list"
@@ -492,7 +540,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                 </button>
             </div>
         </div>
-        <div class="border-gradient mb-8 rounded-xl px-4 py-3">
+        <div id="deals" class="scroll-mt-24 border-gradient mb-8 rounded-xl px-4 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div
                     class="flex w-full items-center gap-2 text-xs font-medium tracking-wider text-muted-foreground uppercase sm:w-auto"
@@ -695,6 +743,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
             </div>
         </section>
         <section
+            v-if="!isAuthenticated"
             v-reveal
             class="border-gradient-strong relative mt-12 overflow-hidden rounded-2xl p-8 text-center md:p-12"
         >

@@ -43,7 +43,27 @@ export async function api<T = unknown>(url: string, options: ApiOptions = {}): P
     const response = await fetch(fullUrl, fetchOptions);
 
     if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        let message = `API error: ${response.status}`;
+
+        try {
+            const data = (await response.json()) as {
+                message?: string;
+                errors?: Record<string, string[]>;
+            };
+            const firstError = data.errors
+                ? Object.values(data.errors).flat()[0]
+                : undefined;
+
+            if (firstError) {
+                message = firstError;
+            } else if (data.message) {
+                message = data.message;
+            }
+        } catch {
+            // garde le message HTTP par défaut
+        }
+
+        throw new Error(message);
     }
 
     return response.json() as Promise<T>;

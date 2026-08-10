@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NexardaService;
 use App\Services\PriceAlertChecker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class PriceAlertController extends Controller
 {
@@ -18,20 +20,37 @@ class PriceAlertController extends Controller
         return response()->json($alerts);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, NexardaService $nexarda): JsonResponse
     {
         $validated = $request->validate([
             'game_id' => 'required|string|max:50',
             'title' => 'required|string|max:255',
-            'target_price' => 'required|numeric|min:0|max:9999',
+            'target_price' => 'required|numeric|min:0.01|max:9999',
+            'current_price' => 'required|numeric|min:0',
         ]);
+
+        $currentPrice = $this->resolveCurrentPrice(
+            $nexarda,
+            $validated['game_id'],
+            (float) $validated['current_price'],
+        );
+
+        if ((float) $validated['target_price'] >= $currentPrice) {
+            throw ValidationException::withMessages([
+                'target_price' => __('validation.custom.target_price.below_current', [
+                    'price' => number_format($currentPrice, 2, ',', ' '),
+                ]),
+            ]);
+        }
 
         $alert = $request->user()
             ->priceAlerts()
             ->updateOrCreate(
                 ['game_id' => $validated['game_id']],
                 [
-                    ...$validated,
+                    'title' => $validated['title'],
+                    'target_price' => $validated['target_price'],
+                    'current_price' => $currentPrice,
                     'is_reached' => false,
                     'notified_at' => null,
                 ],
@@ -81,5 +100,18 @@ class PriceAlertController extends Controller
             'alerts' => $alerts,
             'triggered' => $triggered,
         ]);
+    }
+
+    private function resolveCurrentPrice(NexardaService $nexarda, string $gameId, float $fallback): float
+    {
+        if (is_numeric($gameId)) {
+            $data = $nexarda->getPrices((int) $gameId);
+
+            if ($data && $data['lowest'] !== null) {
+                return (float) $data['lowest'];
+            }
+        }
+
+        return $fallback;
     }
 }

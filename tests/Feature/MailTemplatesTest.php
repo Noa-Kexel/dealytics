@@ -66,6 +66,17 @@ class MailTemplatesTest extends TestCase
         $this->assertStringContainsString(route('legal.terms'), $html);
     }
 
+    public function test_mail_layout_footer_reason_link_is_not_escaped(): void
+    {
+        $html = $this->renderPriceAlert(User::factory()->create());
+
+        $this->assertMatchesRegularExpression(
+            '/parce que vous avez un compte sur\s*<a href="[^"]+"[^>]*>[^<]+<\/a>\./',
+            $html,
+        );
+        $this->assertStringNotContainsString('&lt;a href=', $html);
+    }
+
     public function test_verification_mail_uses_the_branded_template(): void
     {
         $user = User::factory()->unverified()->create(['name' => 'Noa']);
