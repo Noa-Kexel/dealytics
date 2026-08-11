@@ -306,6 +306,7 @@ onMounted(async () => {
                 label="Jeux suivis"
                 :value="favorites.length"
                 hint="dans la watchlist"
+                href="/favorites"
                 icon-class="text-dealytics-purple"
                 icon-bg-class="bg-dealytics-purple/20"
                 value-class="text-dealytics-purple"
