@@ -36,6 +36,45 @@ class PurchaseTest extends TestCase
             ->assertJsonFragment(['game_title' => 'Ce mois-ci']);
     }
 
+    public function test_store_accepts_a_custom_purchased_at_date(): void
+    {
+        $user = User::factory()->create();
+        $pastDate = now()->subMonthsNoOverflow(2)->setTime(12, 0);
+
+        $this->actingAs($user)
+            ->postJson('/api/purchases', [
+                'game_title' => 'Achat rétroactif',
+                'price' => 9.99,
+                'original_price' => 29.99,
+                'store' => 'Steam',
+                'purchased_at' => $pastDate->toDateString(),
+            ])
+            ->assertCreated()
+            ->assertJsonFragment(['game_title' => 'Achat rétroactif']);
+
+        $this->assertDatabaseHas('purchases', [
+            'user_id' => $user->id,
+            'game_title' => 'Achat rétroactif',
+        ]);
+
+        $this->assertTrue(
+            $user->purchases()->where('game_title', 'Achat rétroactif')->first()
+                ->purchased_at
+                ->isSameDay($pastDate)
+        );
+
+        $this->actingAs($user)
+            ->getJson('/api/purchases')
+            ->assertOk()
+            ->assertJsonCount(0);
+
+        $this->actingAs($user)
+            ->getJson('/api/purchases?month='.$pastDate->format('Y-m'))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonFragment(['game_title' => 'Achat rétroactif']);
+    }
+
     public function test_store_persists_a_purchase_and_it_appears_in_the_index(): void
     {
         $user = User::factory()->create();
