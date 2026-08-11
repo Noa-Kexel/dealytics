@@ -105,12 +105,30 @@ const newPurchaseTitle = ref('');
 const newPurchasePrice = ref('');
 const newPurchaseOriginal = ref('');
 const newPurchaseStore = ref('');
+const newPurchaseDate = ref(todayDateInputValue());
 const justAddedOverBudget = ref(false);
+
+function todayDateInputValue(): string {
+    const now = new Date();
+
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function isSameMonthAsCurrent(dateInput: string): boolean {
+    const now = new Date();
+    const [y, m] = dateInput.split('-').map(Number);
+
+    return y === now.getFullYear() && m === now.getMonth() + 1;
+}
 
 const newPurchasePriceNum = computed(() => parseFloat(newPurchasePrice.value) || 0);
 
+const purchaseAffectsCurrentMonth = computed(() =>
+    isSameMonthAsCurrent(newPurchaseDate.value || todayDateInputValue()),
+);
+
 const purchaseWouldExceedBudget = computed(() =>
-    wouldExceedBudgetWith(newPurchasePriceNum.value),
+    purchaseAffectsCurrentMonth.value && wouldExceedBudgetWith(newPurchasePriceNum.value),
 );
 
 const projectedMonthlyTotal = computed(() => totalSpent.value + newPurchasePriceNum.value);
@@ -182,16 +200,25 @@ function saveBudgetLimit() {
 async function submitPurchase() {
     const price = parseFloat(newPurchasePrice.value);
     const original = parseFloat(newPurchaseOriginal.value) || price;
+    const purchaseDate = newPurchaseDate.value || todayDateInputValue();
 
     if (newPurchaseTitle.value && price > 0) {
-        const willExceedBudget = wouldExceedBudgetWith(price);
+        const willExceedBudget =
+            isSameMonthAsCurrent(purchaseDate) && wouldExceedBudgetWith(price);
 
-        await addPurchase(newPurchaseTitle.value, price, original, newPurchaseStore.value || 'N/A');
+        await addPurchase(
+            newPurchaseTitle.value,
+            price,
+            original,
+            newPurchaseStore.value || 'N/A',
+            purchaseDate,
+        );
         justAddedOverBudget.value = willExceedBudget;
         newPurchaseTitle.value = '';
         newPurchasePrice.value = '';
         newPurchaseOriginal.value = '';
         newPurchaseStore.value = '';
+        newPurchaseDate.value = todayDateInputValue();
         refreshChart();
     }
 }
@@ -410,6 +437,16 @@ onMounted(async () => {
                                 <Input v-model="newPurchaseOriginal" type="number" step="0.01" min="0" placeholder="Prix original (€)" class="text-sm" />
                             </div>
                             <Input v-model="newPurchaseStore" placeholder="Magasin (ex: Steam)" class="text-sm" />
+                            <div class="space-y-1.5">
+                                <label for="purchase-date" class="text-xs text-muted-foreground">Date d'achat</label>
+                                <Input
+                                    id="purchase-date"
+                                    v-model="newPurchaseDate"
+                                    type="date"
+                                    class="text-sm"
+                                    :max="todayDateInputValue()"
+                                />
+                            </div>
                             <DialogClose as-child>
                                 <Button
                                     class="w-full bg-dealytics-purple hover:bg-dealytics-deep-purple"

@@ -22,9 +22,26 @@ export interface MonthlyBudget {
 const STORAGE_KEY = 'dealytics_budget';
 
 function currentMonthKey(): string {
-    const now = new Date();
+    return monthKeyFromIso(new Date().toISOString());
+}
 
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+function monthKeyFromIso(iso: string): string {
+    const d = new Date(iso);
+
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** YYYY-MM-DD (input date) → ISO à midi local pour éviter le décalage UTC. */
+function toPurchasedAtIso(dateInput?: string | null): string {
+    if (!dateInput) {
+        return new Date().toISOString();
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        return new Date(`${dateInput}T12:00:00`).toISOString();
+    }
+
+    return new Date(dateInput).toISOString();
 }
 
 function isAuthenticated(): boolean {
@@ -48,10 +65,10 @@ function loadFromStorage(): MonthlyBudget {
     }
 }
 
-function saveToStorage(budget: MonthlyBudget) {
+function saveToStorage(budget: MonthlyBudget, monthKey: string = currentMonthKey()) {
     try {
         const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        data[currentMonthKey()] = budget;
+        data[monthKey] = budget;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch {
         // ignore
@@ -163,11 +180,19 @@ export function useBudget() {
         }
     }
 
-    async function addPurchase(gameTitle: string, price: number, originalPrice: number, store: string) {
+    async function addPurchase(
+        gameTitle: string,
+        price: number,
+        originalPrice: number,
+        store: string,
+        purchasedAtDate?: string | null,
+    ) {
         // crypto.randomUUID() n'existe qu'en contexte sécurisé (HTTPS/localhost),
         // pas sur http://dealytics.test — un id temporaire maison suffit ici.
         const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const now = new Date().toISOString();
+        const purchasedAt = toPurchasedAtIso(purchasedAtDate);
+        const purchaseMonth = monthKeyFromIso(purchasedAt);
+        const isCurrentMonth = purchaseMonth === currentMonthKey();
 
         const purchase: Purchase = normalizePurchase({
             id: tempId,
@@ -177,11 +202,15 @@ export function useBudget() {
             original_price: originalPrice,
             originalPrice,
             store,
-            purchased_at: now,
-            date: now,
+            purchased_at: purchasedAt,
+            date: purchasedAt,
         });
 
-        budget.value.purchases.push(purchase);
+        // Le dashboard n'affiche que le mois courant : un achat rétroactif
+        // ne doit pas fausser les totaux du mois affiché.
+        if (isCurrentMonth) {
+            budget.value.purchases.push(purchase);
+        }
 
         if (isAuthenticated()) {
             try {
@@ -192,20 +221,30 @@ export function useBudget() {
                         price,
                         original_price: originalPrice,
                         store,
+                        purchased_at: purchasedAt,
                     },
                 });
 
-                // Remplace l'id temporaire par celui de la DB.
-                const idx = budget.value.purchases.findIndex((p) => p.id === tempId);
+                if (isCurrentMonth) {
+                    const idx = budget.value.purchases.findIndex((p) => p.id === tempId);
 
-                if (idx >= 0) {
-                    budget.value.purchases[idx] = normalizePurchase(created);
+                    if (idx >= 0) {
+                        budget.value.purchases[idx] = normalizePurchase(created);
+                    }
                 }
             } catch {
                 // garde l'état optimiste
             }
-        } else {
+        } else if (isCurrentMonth) {
             saveToStorage(budget.value);
+        } else {
+            const allMonths = loadAllMonthsFromStorage();
+            const monthBudget: MonthlyBudget = allMonths[purchaseMonth] || {
+                limit: budget.value.limit,
+                purchases: [],
+            };
+            monthBudget.purchases.push(purchase);
+            saveToStorage(monthBudget, purchaseMonth);
         }
     }
 
