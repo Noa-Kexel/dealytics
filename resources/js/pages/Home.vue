@@ -487,9 +487,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
         </div>
         <div ref="searchContainer" class="relative mb-4">
             <div
-                class="border-gradient flex items-center gap-3 rounded-xl px-4 py-3"
+                class="border-gradient search-bar group flex items-center gap-3 rounded-xl px-4 py-3"
             >
-                <Search class="size-5 text-muted-foreground" />
+                <Search
+                    class="size-5 text-muted-foreground transition-colors duration-200 group-focus-within:text-dealytics-purple"
+                />
                 <input
                     v-model="searchQuery"
                     type="text"
