@@ -265,4 +265,91 @@ class GameApiTest extends TestCase
         $this->assertSame(20.0, $result['games'][0]['normalPrice']);
         $this->assertSame(50, $result['games'][0]['discount']);
     }
+
+    public function test_steam_enrichment_is_skipped_when_no_title_matches(): void
+    {
+        Cache::flush();
+
+        // Steam remonte systématiquement un « meilleur » résultat : sans garde-fou
+        // la fiche de GTA VI héritait de la jaquette de Vice City.
+        Http::fake([
+            'store.steampowered.com/api/storesearch/*' => Http::response([
+                'items' => [
+                    ['id' => 1546990, 'name' => 'Grand Theft Auto: Vice City – The Definitive Edition'],
+                    ['id' => 271590, 'name' => 'Grand Theft Auto V'],
+                ],
+            ], 200),
+            'store.steampowered.com/api/appdetails*' => Http::response([], 200),
+        ]);
+
+        $this->assertNull(app(SteamStoreService::class)->getGameByTitle('Grand Theft Auto VI'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'appdetails'));
+    }
+
+    public function test_steam_enrichment_tolerates_edition_suffixes(): void
+    {
+        Cache::flush();
+
+        $appId = 489830;
+
+        Http::fake([
+            'store.steampowered.com/api/storesearch/*' => Http::response([
+                'items' => [['id' => $appId, 'name' => 'The Elder Scrolls V: Skyrim Special Edition']],
+            ], 200),
+            'store.steampowered.com/api/appdetails*' => Http::response([
+                (string) $appId => [
+                    'success' => true,
+                    'data' => [
+                        'name' => 'The Elder Scrolls V: Skyrim Special Edition',
+                        'platforms' => ['windows' => true, 'mac' => false, 'linux' => false],
+                        'short_description' => 'RPG',
+                    ],
+                ],
+            ], 200),
+            'store.steampowered.com/appreviews/*' => Http::response([
+                'query_summary' => ['review_score' => 0, 'total_reviews' => 0],
+            ], 200),
+            '*library_hero.jpg' => Http::response('', 404),
+        ]);
+
+        $game = app(SteamStoreService::class)->getGameByTitle('The Elder Scrolls V: Skyrim');
+
+        $this->assertNotNull($game);
+        $this->assertSame($appId, $game['id']);
+    }
+
+    public function test_nexarda_prices_count_only_available_offers(): void
+    {
+        Cache::flush();
+
+        Http::fake([
+            'www.nexarda.com/api/v3/prices*' => Http::response([
+                'success' => true,
+                'info' => ['id' => 96, 'name' => 'Cyberpunk 2077', 'cover' => null],
+                'prices' => [
+                    'currency' => 'EUR',
+                    'currency_symbol' => '€',
+                    'lowest' => 29.99,
+                    'highest' => 59.99,
+                    'max_discount' => 50,
+                    // Totaux bruts de Nexarda : ils incluent les offres épuisées.
+                    'stores' => 34,
+                    'offers' => 65,
+                    'editions' => [],
+                    'list' => [
+                        ['store' => ['name' => 'Steam'], 'price' => 29.99, 'available' => true],
+                        ['store' => ['name' => 'GOG'], 'price' => 31.99, 'available' => true],
+                        ['store' => ['name' => 'Steam'], 'price' => 34.99, 'available' => true],
+                        ['store' => ['name' => 'Fanatical'], 'price' => 19.99, 'available' => false],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $prices = app(NexardaService::class)->getPrices(96);
+
+        $this->assertCount(3, $prices['offers']);
+        $this->assertSame(3, $prices['offerCount']);
+        $this->assertSame(2, $prices['storeCount']);
+    }
 }

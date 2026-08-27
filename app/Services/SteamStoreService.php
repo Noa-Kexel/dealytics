@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\GameDescriptionFormatter;
+use App\Support\GameTitleMatcher;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -22,13 +23,16 @@ class SteamStoreService
 
     private function searchAppId(string $title): ?int
     {
-        $cacheKey = 'steam_search_'.md5(mb_strtolower(trim($title)));
+        $cacheKey = 'steam_search_v2_'.md5(mb_strtolower(trim($title)));
 
         return Cache::remember($cacheKey, now()->addHours(24), function () use ($title) {
             try {
+                // Recherche en anglais : les titres Nexarda le sont, et Steam
+                // traduit les siens (« La Saga Skywalker »), ce qui empêcherait
+                // tout rapprochement. La fiche, elle, reste récupérée en français.
                 $response = Http::timeout(8)->get('https://store.steampowered.com/api/storesearch/', [
                     'term' => $title,
-                    'l' => 'french',
+                    'l' => 'english',
                     'cc' => 'fr',
                 ]);
 
@@ -42,15 +46,24 @@ class SteamStoreService
                     return null;
                 }
 
-                $normalizedTitle = mb_strtolower(trim($title));
+                $normalizedTitle = GameTitleMatcher::normalize($title);
 
                 foreach ($items as $item) {
-                    if (mb_strtolower($item['name'] ?? '') === $normalizedTitle) {
+                    if (GameTitleMatcher::normalize((string) ($item['name'] ?? '')) === $normalizedTitle) {
                         return (int) $item['id'];
                     }
                 }
 
-                return (int) $items[0]['id'];
+                // Steam remonte toujours un « meilleur » résultat, même pour un
+                // jeu absent de la boutique : « Grand Theft Auto VI » renvoyait
+                // Vice City. Sans correspondance sûre, pas d'enrichissement.
+                foreach ($items as $item) {
+                    if (GameTitleMatcher::matches($title, (string) ($item['name'] ?? ''))) {
+                        return (int) $item['id'];
+                    }
+                }
+
+                return null;
             } catch (\Throwable) {
                 return null;
             }

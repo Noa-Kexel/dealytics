@@ -131,6 +131,28 @@ class NexardaService
                     $data = $response->json();
 
                     if (!empty($data['success']) && !empty($data['prices']['list'])) {
+                        $offers = collect($data['prices']['list'])
+                            ->filter(fn ($offer) => $offer['available'] ?? false)
+                            ->map(fn ($offer) => [
+                                'url' => $offer['url'] ?? null,
+                                'store' => $offer['store']['name'] ?? 'Unknown',
+                                'storeImage' => $offer['store']['image'] ?? null,
+                                'storeType' => $offer['store']['type'] ?? 'Unknown',
+                                'official' => $offer['store']['official'] ?? false,
+                                'edition' => $offer['edition'] ?? null,
+                                'editionFull' => $offer['edition_full'] ?? null,
+                                'platform' => self::extractPlatform($offer['edition_full'] ?? null),
+                                'region' => $offer['region'] ?? null,
+                                'price' => $offer['price'] ?? 0,
+                                'discount' => $offer['discount'] ?? 0,
+                                'coupon' => !empty($offer['coupon']['available']) ? [
+                                    'code' => $offer['coupon']['code'] ?? null,
+                                    'discount' => $offer['coupon']['discount'] ?? 0,
+                                    'priceWithout' => $offer['coupon']['price_without'] ?? null,
+                                ] : null,
+                            ])
+                            ->values();
+
                         return [
                             'game' => [
                                 'id' => $data['info']['id'] ?? $gameId,
@@ -142,31 +164,14 @@ class NexardaService
                             'lowest' => $data['prices']['lowest'] ?? null,
                             'highest' => $data['prices']['highest'] ?? null,
                             'maxDiscount' => $data['prices']['max_discount'] ?? 0,
-                            'storeCount' => $data['prices']['stores'] ?? 0,
-                            'offerCount' => $data['prices']['offers'] ?? 0,
+                            // Les totaux de Nexarda comptent aussi les offres
+                            // épuisées ou retirées : on ne compte que ce qui est
+                            // réellement achetable, sinon l'en-tête annonce plus
+                            // d'offres que la liste n'en affiche.
+                            'storeCount' => $offers->pluck('store')->unique()->count(),
+                            'offerCount' => $offers->count(),
                             'editions' => $data['prices']['editions'] ?? [],
-                            'offers' => collect($data['prices']['list'])
-                                ->filter(fn ($offer) => $offer['available'] ?? false)
-                                ->map(fn ($offer) => [
-                                    'url' => $offer['url'] ?? null,
-                                    'store' => $offer['store']['name'] ?? 'Unknown',
-                                    'storeImage' => $offer['store']['image'] ?? null,
-                                    'storeType' => $offer['store']['type'] ?? 'Unknown',
-                                    'official' => $offer['store']['official'] ?? false,
-                                    'edition' => $offer['edition'] ?? null,
-                                    'editionFull' => $offer['edition_full'] ?? null,
-                                    'platform' => self::extractPlatform($offer['edition_full'] ?? null),
-                                    'region' => $offer['region'] ?? null,
-                                    'price' => $offer['price'] ?? 0,
-                                    'discount' => $offer['discount'] ?? 0,
-                                    'coupon' => !empty($offer['coupon']['available']) ? [
-                                        'code' => $offer['coupon']['code'] ?? null,
-                                        'discount' => $offer['coupon']['discount'] ?? 0,
-                                        'priceWithout' => $offer['coupon']['price_without'] ?? null,
-                                    ] : null,
-                                ])
-                                ->values()
-                                ->all(),
+                            'offers' => $offers->all(),
                         ];
                     }
                 }
