@@ -28,6 +28,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { takeCompleteRows, useDealGridColumns, DEAL_GRID_CLASS } from '@/composables/useDealGridColumns';
 import { useFavorites } from '@/composables/useFavorites';
 import { syncHomeListUrl, parseHomeListQuery } from '@/composables/useHomeListUrl';
@@ -227,6 +233,35 @@ const needsRowFill = computed(
 );
 
 const stats = ref({ trackedGames: 0, hotDeals: 0, totalSavings: 0 });
+
+// Ces chiffres viennent de la base Dealytics (/api/stats), pas d'une API externe :
+// sans explication à l'écran, personne ne peut deviner ce qu'ils mesurent.
+const heroStats = computed(() => [
+    {
+        key: 'tracked',
+        icon: Zap,
+        color: 'text-dealytics-purple',
+        value: stats.value.trackedGames.toLocaleString('fr-FR'),
+        label: 'Jeux suivis',
+        hint: 'Jeux surveillés par Dealytics : ceux mis en favori, placés sous alerte de prix, ou dont un relevé de prix a déjà été enregistré.',
+    },
+    {
+        key: 'hot',
+        icon: Flame,
+        color: 'text-dealytics-pink',
+        value: stats.value.hotDeals.toLocaleString('fr-FR'),
+        label: 'Promos chaudes',
+        hint: 'Parmi les jeux suivis, ceux dont le dernier relevé affiche une réduction d’au moins 50 %.',
+    },
+    {
+        key: 'savings',
+        icon: TrendingDown,
+        color: 'text-dealytics-cyan',
+        value: `${stats.value.totalSavings.toLocaleString('fr-FR')}€`,
+        label: 'Économies totales',
+        hint: 'Somme des écarts entre prix normal et prix promotionnel, sur le dernier relevé de chaque jeu suivi en promotion.',
+    },
+]);
 
 async function loadStats() {
     try {
@@ -443,53 +478,44 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocumentMoused
                         plus bas.
                     </p>
 
-                    <div class="mt-8 flex flex-wrap gap-6 md:gap-10">
-                        <div class="flex items-center gap-2">
-                            <Zap class="size-4 text-dealytics-purple" />
-                            <div>
-                                <span
-                                    class="text-lg font-bold text-dealytics-purple"
-                                    >{{ stats.trackedGames.toLocaleString('fr-FR') }}</span
+                    <TooltipProvider :delay-duration="150">
+                        <div class="mt-8 flex flex-wrap gap-6 md:gap-10">
+                            <Tooltip v-for="stat in heroStats" :key="stat.key">
+                                <TooltipTrigger as-child>
+                                    <button
+                                        type="button"
+                                        class="flex cursor-help items-center gap-2 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    >
+                                        <component :is="stat.icon" class="size-4" :class="stat.color" />
+                                        <div>
+                                            <span class="text-lg font-bold" :class="stat.color">{{ stat.value }}</span>
+                                            <span
+                                                class="ml-1 text-xs text-muted-foreground underline decoration-dotted decoration-muted-foreground/50 underline-offset-4"
+                                            >
+                                                {{ stat.label }}
+                                            </span>
+                                        </div>
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                    side="bottom"
+                                    :side-offset="8"
+                                    class="max-w-64 border border-border/50 bg-card p-3 text-xs leading-relaxed text-card-foreground shadow-xl"
                                 >
-                                <span class="ml-1 text-xs text-muted-foreground"
-                                    >Jeux suivis</span
-                                >
-                            </div>
+                                    {{ stat.hint }}
+                                </TooltipContent>
+                            </Tooltip>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <Flame class="size-4 text-dealytics-pink" />
-                            <div>
-                                <span
-                                    class="text-lg font-bold text-dealytics-pink"
-                                    >{{ stats.hotDeals.toLocaleString('fr-FR') }}</span
-                                >
-                                <span class="ml-1 text-xs text-muted-foreground"
-                                    >Promos chaudes</span
-                                >
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <TrendingDown
-                                class="size-4 text-dealytics-cyan"
-                            />
-                            <div>
-                                <span
-                                    class="text-lg font-bold text-dealytics-cyan"
-                                    >{{ stats.totalSavings.toLocaleString('fr-FR') }}€</span
-                                >
-                                <span class="ml-1 text-xs text-muted-foreground"
-                                    >Economies totales</span
-                                >
-                            </div>
-                        </div>
-                    </div>
+                    </TooltipProvider>
             </div>
         </div>
         <div ref="searchContainer" class="relative mb-4">
             <div
-                class="border-gradient flex items-center gap-3 rounded-xl px-4 py-3"
+                class="border-gradient search-bar group flex items-center gap-3 rounded-xl px-4 py-3"
             >
-                <Search class="size-5 text-muted-foreground" />
+                <Search
+                    class="size-5 text-muted-foreground transition-colors duration-200 group-focus-within:text-dealytics-purple"
+                />
                 <input
                     v-model="searchQuery"
                     type="text"

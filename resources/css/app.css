@@ -198,6 +198,20 @@
             linear-gradient(135deg, rgba(168, 85, 247, 0.6), rgba(34, 211, 238, 0.4), rgba(236, 72, 153, 0.3)) border-box;
     }
 
+    /* Barre de recherche de l'accueil : halo violet au focus.
+       L'effet passe par box-shadow — la bordure dégradée de .border-gradient
+       repose sur background-image, qui ne se transitionne pas. */
+    .search-bar {
+        transition: box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .search-bar:focus-within {
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--color-dealytics-purple) 45%, transparent),
+            0 0 0 5px color-mix(in srgb, var(--color-dealytics-purple) 10%, transparent),
+            0 10px 34px -12px color-mix(in srgb, var(--color-dealytics-purple) 60%, transparent);
+    }
+
     .bg-glow-purple {
         background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.15) 0%, transparent 70%);
     }
@@ -388,6 +402,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .search-bar {
+        transition: none;
+    }
+
     .animate-menu-item,
     .menu-drop-enter-active,
     .menu-drop-leave-active {
