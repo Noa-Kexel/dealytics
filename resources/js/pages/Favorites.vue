@@ -197,7 +197,10 @@ async function fetchPrices() {
             if (data?.lowest != null) {
                 const discount = Math.round(data.maxDiscount || 0);
                 fav.currentPrice = data.lowest;
-                fav.normalPrice = deriveNormalPrice(data.lowest, discount, data.highest) ?? undefined;
+                // Sans `highest` en repli : hors promotion, l'offre la plus chère
+                // du catalogue n'est pas un « prix normal ». Une seule annonce
+                // farfelue (500€ pour un jeu à 8€) gonflait les économies totales.
+                fav.normalPrice = deriveNormalPrice(data.lowest, discount) ?? undefined;
                 fav.savings = discount;
             }
         } catch {
@@ -277,7 +280,7 @@ function hasAlert(gameId: string): boolean {
             />
             <StatCard
                 :icon="TrendingDown"
-                label="Economies potentielles"
+                label="Économies potentielles"
                 :value="`${totalSaved}€`"
                 icon-class="text-dealytics-cyan"
                 icon-bg-class="bg-dealytics-cyan/20"
