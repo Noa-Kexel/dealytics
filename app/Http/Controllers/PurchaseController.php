@@ -59,7 +59,7 @@ class PurchaseController extends Controller
     public function history(Request $request): JsonResponse
     {
         $history = [];
-        $now = now();
+        $now = now()->startOfMonth();
 
         for ($i = 5; $i >= 0; $i--) {
             $date = $now->copy()->subMonths($i);
