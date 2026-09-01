@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -23,6 +24,17 @@ class ItadService
     }
 
     /**
+     * Client HTTP ITAD. La clé passe par un en-tête et non par la query string,
+     * qui finit typiquement dans les logs d'accès, de proxy et les traces d'erreur.
+     */
+    private function client(int $timeout): PendingRequest
+    {
+        return Http::timeout($timeout)->withHeaders([
+            'ITAD-API-Key' => $this->apiKey,
+        ]);
+    }
+
+    /**
      * Recherche un jeu par titre ou Steam App ID → UUID ITAD.
      */
     public function lookupGame(string $title, ?string $steamAppId = null): ?array
@@ -37,9 +49,8 @@ class ItadService
             try {
                 // App ID Steam d'abord (plus fiable).
                 if ($steamAppId) {
-                    $response = Http::timeout(5)->get("{$this->baseUrl}/games/lookup/v1", [
-                        'key' => $this->apiKey,
-                        'appid' => "app/{$steamAppId}",
+                    $response = $this->client(5)->get("{$this->baseUrl}/games/lookup/v1", [
+                        'appid' => $steamAppId,
                     ]);
 
                     if ($response->successful()) {
@@ -51,8 +62,7 @@ class ItadService
                     }
                 }
 
-                $response = Http::timeout(5)->get("{$this->baseUrl}/games/search/v1", [
-                    'key' => $this->apiKey,
+                $response = $this->client(5)->get("{$this->baseUrl}/games/search/v1", [
                     'title' => $title,
                     'results' => 1,
                 ]);
@@ -82,41 +92,60 @@ class ItadService
         }
 
         $cacheKey = "itad_history_{$gameUuid}_{$months}_{$country}";
+        $cached = Cache::get($cacheKey);
 
-        return Cache::remember($cacheKey, now()->addHours(6), function () use ($gameUuid, $months, $country) {
-            try {
-                $response = Http::timeout(10)->get("{$this->baseUrl}/games/history/v2", [
-                    'key' => $this->apiKey,
-                    'id' => $gameUuid,
-                    'country' => $country,
-                    'since' => now()->subMonths($months)->toIso8601String(),
-                ]);
+        if ($cached !== null) {
+            return $cached;
+        }
 
-                if (! $response->successful()) {
-                    return [];
-                }
+        $history = $this->fetchHistory($gameUuid, $months, $country);
 
-                return collect($response->json())
-                    ->map(function ($entry) {
-                        $amount = $entry['deal']['price']['amount'] ?? null;
+        // Un historique vide vient aussi bien d'un jeu sans relevés que d'un timeout
+        // ou d'une panne API. On le garde peu de temps pour ne pas bloquer la page
+        // sur le repli « snapshots » pendant 6 h après un simple incident réseau.
+        Cache::put($cacheKey, $history, $history === [] ? now()->addMinutes(5) : now()->addHours(6));
 
-                        if ($amount === null || empty($entry['timestamp'])) {
-                            return null;
-                        }
+        return $history;
+    }
 
-                        return [
-                            'date' => strtotime($entry['timestamp']),
-                            'price' => (float) $amount,
-                        ];
-                    })
-                    ->filter()
-                    ->sortBy('date')
-                    ->values()
-                    ->all();
-            } catch (\Throwable) {
+    /**
+     * Appel réseau brut vers ITAD, sans cache.
+     *
+     * @return array<int, array{date: int, price: float}>
+     */
+    private function fetchHistory(string $gameUuid, int $months, string $country): array
+    {
+        try {
+            $response = $this->client(10)->get("{$this->baseUrl}/games/history/v2", [
+                'id' => $gameUuid,
+                'country' => $country,
+                'since' => now()->subMonths($months)->toIso8601String(),
+            ]);
+
+            if (! $response->successful()) {
                 return [];
             }
-        });
+
+            return collect($response->json())
+                ->map(function ($entry) {
+                    $amount = $entry['deal']['price']['amount'] ?? null;
+
+                    if ($amount === null || empty($entry['timestamp'])) {
+                        return null;
+                    }
+
+                    return [
+                        'date' => strtotime($entry['timestamp']),
+                        'price' => (float) $amount,
+                    ];
+                })
+                ->filter()
+                ->sortBy('date')
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**
