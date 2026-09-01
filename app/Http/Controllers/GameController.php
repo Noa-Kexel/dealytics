@@ -24,7 +24,16 @@ class GameController extends Controller
         $query = (string) $request->query('q', '');
         $page = (int) $request->query('page', 1);
 
-        return response()->json($nexarda->searchGames($query, $page));
+        $data = $nexarda->searchGames($query, $page);
+
+        // Un 200 avec zéro jeu ferait afficher « Aucun résultat » alors que la
+        // recherche n'a jamais abouti. Le 503 déclenche l'écran d'erreur et son
+        // bouton « Réessayer ».
+        if (! empty($data['error'])) {
+            return response()->json($data, 503);
+        }
+
+        return response()->json($data);
     }
 
     public function nexardaById(int $id, NexardaService $nexarda): JsonResponse
