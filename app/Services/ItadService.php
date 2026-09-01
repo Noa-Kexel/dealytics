@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -23,6 +24,17 @@ class ItadService
     }
 
     /**
+     * Client HTTP ITAD. La clé passe par un en-tête et non par la query string,
+     * qui finit typiquement dans les logs d'accès, de proxy et les traces d'erreur.
+     */
+    private function client(int $timeout): PendingRequest
+    {
+        return Http::timeout($timeout)->withHeaders([
+            'ITAD-API-Key' => $this->apiKey,
+        ]);
+    }
+
+    /**
      * Recherche un jeu par titre ou Steam App ID → UUID ITAD.
      */
     public function lookupGame(string $title, ?string $steamAppId = null): ?array
@@ -37,8 +49,7 @@ class ItadService
             try {
                 // App ID Steam d'abord (plus fiable).
                 if ($steamAppId) {
-                    $response = Http::timeout(5)->get("{$this->baseUrl}/games/lookup/v1", [
-                        'key' => $this->apiKey,
+                    $response = $this->client(5)->get("{$this->baseUrl}/games/lookup/v1", [
                         'appid' => $steamAppId,
                     ]);
 
@@ -51,8 +62,7 @@ class ItadService
                     }
                 }
 
-                $response = Http::timeout(5)->get("{$this->baseUrl}/games/search/v1", [
-                    'key' => $this->apiKey,
+                $response = $this->client(5)->get("{$this->baseUrl}/games/search/v1", [
                     'title' => $title,
                     'results' => 1,
                 ]);
@@ -106,8 +116,7 @@ class ItadService
     private function fetchHistory(string $gameUuid, int $months, string $country): array
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/games/history/v2", [
-                'key' => $this->apiKey,
+            $response = $this->client(10)->get("{$this->baseUrl}/games/history/v2", [
                 'id' => $gameUuid,
                 'country' => $country,
                 'since' => now()->subMonths($months)->toIso8601String(),
