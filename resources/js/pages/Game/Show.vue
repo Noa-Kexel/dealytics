@@ -105,7 +105,11 @@ const HISTORY_RANGES = [
 ] as const;
 
 type RangeKey = (typeof HISTORY_RANGES)[number]['key'];
-const historyRange = ref<RangeKey>('1y');
+
+// ITAD renvoie jusqu'à 24 mois : on affiche par défaut toute la profondeur
+// disponible, les plages courtes servant à zoomer.
+const DEFAULT_RANGE: RangeKey = 'all';
+const historyRange = ref<RangeKey>(DEFAULT_RANGE);
 
 const dataSpanDays = computed(() => {
     const h = priceHistory.value;
@@ -123,10 +127,6 @@ const availableRanges = computed(() =>
     HISTORY_RANGES.filter((r) => r.days === Infinity || r.days < dataSpanDays.value),
 );
 
-const preferredRange = computed<RangeKey>(() =>
-    availableRanges.value.some((r) => r.key === '1y') ? '1y' : 'all',
-);
-
 const userPickedRange = ref(false);
 
 function selectRange(key: RangeKey) {
@@ -136,12 +136,12 @@ function selectRange(key: RangeKey) {
 
 // Conserve le choix utilisateur si encore valide, sinon bascule sur le défaut.
 watch(
-    [availableRanges, preferredRange],
+    availableRanges,
     () => {
         const valid = availableRanges.value.some((r) => r.key === historyRange.value);
 
         if (!userPickedRange.value || !valid) {
-            historyRange.value = preferredRange.value;
+            historyRange.value = DEFAULT_RANGE;
         }
     },
     { immediate: true },
