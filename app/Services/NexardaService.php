@@ -5,10 +5,14 @@ namespace App\Services;
 use App\Support\Price;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class NexardaService
 {
     private string $baseUrl = 'https://www.nexarda.com/api/v3';
+
+    /** Durée du dernier résultat conservé pour tenir pendant une panne Nexarda. */
+    private const FALLBACK_TTL_HOURS = 24;
 
     private static function extractPlatform(?string $editionFull): ?string
     {
@@ -24,43 +28,77 @@ class NexardaService
      *
      * Sans endpoint « popular » dédié, une requête vide bascule sur un terme
      * large ; tri et filtres se font côté client.
+     *
+     * Une panne de Nexarda n'est jamais mise en cache : sinon un seul appel
+     * trop lent fige une page vide pendant toute la durée du cache. En cas
+     * d'échec on sert le dernier résultat connu, et à défaut on signale la
+     * panne (`error`) pour que l'accueil affiche un écran d'erreur plutôt
+     * qu'un « Aucun résultat » trompeur.
      */
     public function searchGames(string $query = '', int $page = 1): array
     {
         $query = trim($query) !== '' ? trim($query) : 'a';
         $page = max(1, $page);
-        $cacheKey = 'nexarda_games_' . md5($query) . "_p{$page}";
+        $cacheKey = 'nexarda_games_'.md5($query)."_p{$page}";
+        $fallbackKey = "{$cacheKey}_last_ok";
 
-        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($query, $page) {
-            try {
-                $response = Http::timeout(10)->get("{$this->baseUrl}/search", [
-                    'type' => 'games',
-                    'q' => $query,
-                    'page' => $page,
-                ]);
+        $cached = Cache::get($cacheKey);
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $results = $data['results'] ?? [];
+        if ($cached !== null) {
+            return $cached;
+        }
 
-                    $games = collect($results['items'] ?? [])
-                        ->map(fn ($item) => $this->mapGameListItem($item))
-                        ->filter()
-                        ->values()
-                        ->all();
+        try {
+            $response = Http::timeout(10)->get("{$this->baseUrl}/search", [
+                'type' => 'games',
+                'q' => $query,
+                'page' => $page,
+            ]);
 
-                    return [
-                        'games' => $games,
-                        'page' => $results['page'] ?? $page,
-                        'pages' => $results['pages'] ?? 1,
-                        'total' => $results['total'] ?? count($games),
-                    ];
-                }
-            } catch (\Throwable) {
+            if ($response->successful()) {
+                $data = $response->json();
+                $results = $data['results'] ?? [];
+
+                $games = collect($results['items'] ?? [])
+                    ->map(fn ($item) => $this->mapGameListItem($item))
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                $payload = [
+                    'games' => $games,
+                    'page' => $results['page'] ?? $page,
+                    'pages' => $results['pages'] ?? 1,
+                    'total' => $results['total'] ?? count($games),
+                ];
+
+                Cache::put($cacheKey, $payload, now()->addMinutes(30));
+                // Copie longue durée conservée comme filet de secours.
+                Cache::put($fallbackKey, $payload, now()->addHours(self::FALLBACK_TTL_HOURS));
+
+                return $payload;
             }
 
-            return ['games' => [], 'page' => $page, 'pages' => 1, 'total' => 0];
-        });
+            Log::warning('Nexarda : recherche refusée', [
+                'status' => $response->status(),
+                'query' => $query,
+                'page' => $page,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Nexarda : recherche injoignable', [
+                'reason' => $e->getMessage(),
+                'query' => $query,
+                'page' => $page,
+            ]);
+        }
+
+        $fallback = Cache::get($fallbackKey);
+
+        if ($fallback !== null) {
+            return [...$fallback, 'stale' => true];
+        }
+
+        return ['games' => [], 'page' => $page, 'pages' => 1, 'total' => 0, 'error' => true];
     }
 
     private function mapGameListItem(array $item): ?array
@@ -93,7 +131,7 @@ class NexardaService
 
     public function searchGame(string $title): ?array
     {
-        $cacheKey = 'nexarda_search_' . md5($title);
+        $cacheKey = 'nexarda_search_'.md5($title);
 
         return Cache::remember($cacheKey, now()->addHours(24), function () use ($title) {
             try {
@@ -105,11 +143,15 @@ class NexardaService
                 if ($response->successful()) {
                     $data = $response->json();
 
-                    if (!empty($data['results']['items'])) {
+                    if (! empty($data['results']['items'])) {
                         return $data['results']['items'][0]['game_info'] ?? null;
                     }
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                Log::warning('Nexarda : recherche de titre injoignable', [
+                    'reason' => $e->getMessage(),
+                    'title' => $title,
+                ]);
             }
 
             return null;
@@ -130,7 +172,7 @@ class NexardaService
                 if ($response->successful()) {
                     $data = $response->json();
 
-                    if (!empty($data['success']) && !empty($data['prices']['list'])) {
+                    if (! empty($data['success']) && ! empty($data['prices']['list'])) {
                         $offers = collect($data['prices']['list'])
                             ->filter(fn ($offer) => $offer['available'] ?? false)
                             ->map(fn ($offer) => [
@@ -145,7 +187,7 @@ class NexardaService
                                 'region' => $offer['region'] ?? null,
                                 'price' => $offer['price'] ?? 0,
                                 'discount' => $offer['discount'] ?? 0,
-                                'coupon' => !empty($offer['coupon']['available']) ? [
+                                'coupon' => ! empty($offer['coupon']['available']) ? [
                                     'code' => $offer['coupon']['code'] ?? null,
                                     'discount' => $offer['coupon']['discount'] ?? 0,
                                     'priceWithout' => $offer['coupon']['price_without'] ?? null,
@@ -175,7 +217,11 @@ class NexardaService
                         ];
                     }
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                Log::warning('Nexarda : relevé de prix injoignable', [
+                    'reason' => $e->getMessage(),
+                    'gameId' => $gameId,
+                ]);
             }
 
             return null;
@@ -186,7 +232,7 @@ class NexardaService
     {
         $game = $this->searchGame($title);
 
-        if (!$game || empty($game['id'])) {
+        if (! $game || empty($game['id'])) {
             return null;
         }
 

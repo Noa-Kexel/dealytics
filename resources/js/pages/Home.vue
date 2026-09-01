@@ -215,9 +215,18 @@ const filteredGames = computed(() => filterAndSort(games.value));
 
 const hasMore = computed(() => currentPage.value < totalPages.value);
 
+// Quand la pagination échoue (service de prix indisponible), on arrête de
+// vouloir compléter la ligne : sinon le watch ci-dessous relance `loadMore`
+// en boucle sur une API qui ne répond pas.
+const rowFillBlocked = ref(false);
+
 // Affiche seulement des lignes pleines tant qu'il reste des pages à charger.
 const displayedGames = computed(() =>
-    takeCompleteRows(filteredGames.value, gridColumns.value, !hasMore.value),
+    takeCompleteRows(
+        filteredGames.value,
+        gridColumns.value,
+        !hasMore.value || rowFillBlocked.value,
+    ),
 );
 
 const skeletonCount = computed(() => gridColumns.value * 2);
@@ -297,6 +306,7 @@ async function loadGames() {
     loading.value = true;
     hasSearched.value = true;
     loadError.value = false;
+    rowFillBlocked.value = false;
     currentPage.value = 1;
 
     try {
@@ -324,8 +334,10 @@ async function loadMore() {
         const data = await fetchGames(currentPage.value);
         games.value = [...games.value, ...data.games];
         totalPages.value = data.pages;
+        rowFillBlocked.value = false;
     } catch {
         currentPage.value--;
+        rowFillBlocked.value = true;
     } finally {
         loadingMore.value = false;
     }

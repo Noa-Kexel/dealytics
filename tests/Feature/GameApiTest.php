@@ -8,6 +8,7 @@ use App\Services\ItadService;
 use App\Services\NexardaService;
 use App\Services\SteamStoreService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -351,5 +352,109 @@ class GameApiTest extends TestCase
         $this->assertCount(3, $prices['offers']);
         $this->assertSame(3, $prices['offerCount']);
         $this->assertSame(2, $prices['storeCount']);
+    }
+
+    public function test_nexarda_search_never_caches_a_provider_failure(): void
+    {
+        Cache::flush();
+
+        // Avant correctif : un seul appel trop lent figeait une réponse vide
+        // en cache 30 minutes, et l'accueil affichait « Aucun résultat ».
+        $calls = 0;
+
+        Http::fake(function () use (&$calls) {
+            $calls++;
+
+            throw new ConnectionException('cURL error 28: Operation timed out after 10001 milliseconds');
+        });
+
+        $service = app(NexardaService::class);
+
+        $first = $service->searchGames('test', 1);
+        $second = $service->searchGames('test', 1);
+
+        $this->assertTrue($first['error']);
+        $this->assertTrue($second['error']);
+        $this->assertSame(2, $calls, "L'échec ne doit pas être mis en cache.");
+    }
+
+    public function test_nexarda_search_serves_last_known_result_when_provider_is_down(): void
+    {
+        Cache::flush();
+
+        $down = false;
+
+        Http::fake(function () use (&$down) {
+            if ($down) {
+                throw new ConnectionException('cURL error 28: Operation timed out after 10001 milliseconds');
+            }
+
+            return Http::response([
+                'results' => [
+                    'items' => [[
+                        'title' => 'Test Game',
+                        'image' => null,
+                        'game_info' => [
+                            'id' => 42,
+                            'name' => 'Test Game',
+                            'lowest_price' => 10,
+                            'highest_discount' => 50,
+                            'upcoming' => false,
+                            'platforms' => [['slug' => 'steam']],
+                        ],
+                    ]],
+                    'page' => 1,
+                    'pages' => 1,
+                    'total' => 1,
+                ],
+            ], 200);
+        });
+
+        $service = app(NexardaService::class);
+        $this->assertCount(1, $service->searchGames('test', 1)['games']);
+
+        // Le cache court expire, puis Nexarda devient injoignable.
+        $this->travel(31)->minutes();
+        $down = true;
+
+        $result = $service->searchGames('test', 1);
+
+        $this->assertTrue($result['stale']);
+        $this->assertArrayNotHasKey('error', $result);
+        $this->assertSame('Test Game', $result['games'][0]['title']);
+    }
+
+    public function test_games_endpoint_returns_503_when_provider_is_unavailable(): void
+    {
+        $this->mock(NexardaService::class, function ($mock) {
+            $mock->shouldReceive('searchGames')
+                ->with('', 1)
+                ->once()
+                ->andReturn([
+                    'games' => [],
+                    'page' => 1,
+                    'pages' => 1,
+                    'total' => 0,
+                    'error' => true,
+                ]);
+        });
+
+        $this->getJson('/api/games')
+            ->assertStatus(503)
+            ->assertJsonPath('error', true);
+    }
+
+    public function test_games_endpoint_still_returns_200_for_a_genuinely_empty_search(): void
+    {
+        $this->mock(NexardaService::class, function ($mock) {
+            $mock->shouldReceive('searchGames')
+                ->with('zzzzzzzz', 1)
+                ->once()
+                ->andReturn(['games' => [], 'page' => 1, 'pages' => 1, 'total' => 0]);
+        });
+
+        $this->getJson('/api/games?q=zzzzzzzz')
+            ->assertOk()
+            ->assertJsonPath('total', 0);
     }
 }

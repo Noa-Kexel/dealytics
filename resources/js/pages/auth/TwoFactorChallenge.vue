@@ -13,6 +13,12 @@ import {
 import { store } from '@/routes/two-factor/login';
 import type { TwoFactorConfigContent } from '@/types';
 
+// Les refs sont déclarées avant `authConfigContent` : le watchEffect ci-dessous
+// s'exécute immédiatement et lit `showRecoveryInput`, qui doit donc déjà exister.
+const showRecoveryInput = ref<boolean>(false);
+
+const code = ref<string>('');
+
 const authConfigContent = computed<TwoFactorConfigContent>(() => {
     if (showRecoveryInput.value) {
         return {
@@ -36,15 +42,11 @@ watchEffect(() => {
     });
 });
 
-const showRecoveryInput = ref<boolean>(false);
-
 const toggleRecoveryMode = (clearErrors: () => void): void => {
     showRecoveryInput.value = !showRecoveryInput.value;
     clearErrors();
     code.value = '';
 };
-
-const code = ref<string>('');
 </script>
 
 <template>
